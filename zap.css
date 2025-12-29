@@ -1,0 +1,408 @@
+:root {
+  --amarelo: #ffd500;
+  --fundo: #121212;
+  --preto-card: #1e1e1e;
+  --texto: #f0f0f0;
+  --verde-zap: #25d366;
+  --vermelho: #ff4444;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background-color: var(--fundo);
+  background-image: url("./img/fundo.png");
+  background-size: cover;
+  background-attachment: fixed;
+  color: var(--texto);
+}
+
+header {
+  background: rgba(0, 0, 0, 0.9);
+  padding: 15px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 2px solid var(--amarelo);
+  text-align: center;
+}
+
+.logo-text {
+  font-size: 1.4em;
+  font-weight: 900;
+  color: var(--amarelo);
+}
+
+/* --- Categorias --- */
+.sessao-topo {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.5);
+  scrollbar-width: none;
+}
+
+.sessao-topo::-webkit-scrollbar {
+  display: none;
+}
+
+.sessao-topo button {
+  background: #333;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 10px 20px;
+  border-radius: 20px;
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.sessao-topo button.active {
+  background: var(--amarelo);
+  color: #000;
+}
+
+/* --- Cards --- */
+.cardapio {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 15px;
+  padding: 15px;
+}
+
+.card {
+  background: var(--preto-card);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.card h3 {
+  font-size: 1.1em;
+  color: var(--amarelo);
+  margin: 10px 0 5px 0;
+}
+
+.descricao {
+  font-size: 0.85em;
+  color: #bbb;
+  margin-bottom: 15px;
+  line-height: 1.3;
+}
+
+.options-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-add {
+  background: var(--amarelo);
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  color: #000;
+  cursor: pointer;
+}
+
+.btn-personalizar {
+  background: transparent;
+  color: #fff;
+  border: 1px solid var(--amarelo);
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* --- Carrinho Flutuante --- */
+#footerCart {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 55px;
+  height: 55px;
+  background: #1e1e1e;
+  border-radius: 50%;
+  z-index: 1000;
+  box-shadow: 0 3px 10px rgba(237, 213, 31, 0.6);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#footerCart.open {
+  width: 320px;
+  height: 85vh;
+  border-radius: 15px;
+  background: #222;
+  top: 75px;
+  right: 15px;
+}
+
+.cart-header {
+  min-height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #000;
+  font-weight: bold;
+}
+
+#footerCart.open .cart-header {
+  justify-content: space-between;
+  padding: 0 15px;
+  color: var(--amarelo);
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+
+#cartCount {
+  background: var(--vermelho);
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 11px;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+#footerCart.open #cartCount {
+  position: static;
+}
+
+#cartItemsContainer {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+
+#footerCart.open #cartItemsContainer {
+  display: flex;
+}
+
+#cartItems {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid #333;
+  font-size: 0.9em;
+}
+
+.cart-actions {
+  padding: 15px;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#btnFinalizar {
+  background: var(--verde-zap);
+  color: #fff;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#btnLimpar {
+  background: var(--vermelho);
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+/* --- Modais e Popups --- */
+.popup {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9); /* Inicia menor para animação */
+  background: #2c2c2c;
+  width: 95%;
+  max-width: 390px;
+  padding: 20px;
+  border-radius: 15px;
+  z-index: 1100;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: all 0.3s ease-out; /* Transição suave */
+  border: 1px solid rgba(255, 213, 0, 0.2); /* Borda amarela sutil */
+}
+
+.popup.show {
+  display: block;
+  transform: translate(-50%, -50%) scale(1); /* Ganha escala ao aparecer */
+}
+
+/* Botão de Fechar (X) */
+.btn-close-modal {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 5px;
+  transition: color 0.2s;
+  z-index: 10;
+}
+
+.btn-close-modal:hover {
+  color: var(--amarelo);
+}
+
+#popupQuestion h4 {
+  color: var(--amarelo);
+  border-bottom: 1px solid #444;
+  margin: 20px 0 10px;
+  font-size: 0.9em;
+}
+
+#popupQuestion label {
+  display: flex;
+  align-items: center;
+  background: #3d3d3d;
+  padding: 14px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#popupQuestion input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin-right: 12px;
+  accent-color: var(--amarelo);
+}
+
+.btn-primary {
+  width: 100%;
+  background: white;
+  padding: 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1em;
+  margin-top: 15px;
+  color: #000;
+  cursor: pointer;
+}
+
+.backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(
+    0,
+    0,
+    0,
+    0.5
+  ); /* Escurece um pouco menos para destacar o blur */
+  z-index: 950;
+  transition: all 0.3s ease;
+}
+
+.backdrop.show {
+  display: block;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* --- Checkout e Formulários --- */
+input,
+select {
+  width: 100%;
+  padding: 14px;
+  margin: 5px 0 15px;
+  background: #111;
+  border: 1px solid #444;
+  color: #fff;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.resumo-final {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+  font-size: 0.9em;
+}
+
+.total-big {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--amarelo);
+  margin-top: 5px;
+}
+
+.btn-whatsapp {
+  width: 100%;
+  background: #fff;
+  color: black;
+  padding: 18px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1.1em;
+  cursor: pointer;
+}
+
+.btn-whatsapp:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.btn-back {
+  width: 100%;
+  background: var(--vermelho);
+  color: #fff;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.9em;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-back:disabled {
+  background: #555;
+  cursor: not-allowed;
+}

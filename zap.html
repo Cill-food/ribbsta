@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>RibbsZn - Cardápio Digital</title>
+    <link rel="stylesheet" href="zap.css" />
+  </head>
+  <body>
+    <div
+      id="backdrop"
+      class="backdrop"
+      onclick="closeModal('popupCustom'); closeCaldaPopup();"
+    ></div>
+
+    <header>
+      <div class="header-content">
+        <div class="logo-area">
+          <span class="logo-text">RibbsZn</span>
+        </div>
+    </header>
+
+    <div class="sessao-topo" id="sessao-topo">
+      <button class="active" onclick="showCategory('Promoções',this)">
+        Promoções
+      </button>
+      <button onclick="showCategory('Artesanais',this)">Artesanais</button>
+      <button onclick="showCategory('Costela Bovina',this)">Combos</button>
+      <button onclick="showCategory('Batata Frita',this)">Batatas</button>
+      <button onclick="showCategory('Bebidas',this)">Bebidas</button>
+      <button onclick="showCategory('Milk Shakes',this)">Milk Shakes</button>
+    </div>
+
+    <div class="cardapio" id="cardapio"></div>
+
+    <div id="footerCart">
+      <div class="cart-header" onclick="toggleCart()">
+        <span id="cartIcon">🛒</span>
+        <span id="cartCount">0</span>
+      </div>
+
+      <div id="cartItemsContainer">
+        <div id="cartItems"></div>
+
+        <div class="cart-actions">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              color: #fff;
+              margin-bottom: 10px;
+              font-weight: bold;
+            "
+          >
+            <span>Total:</span>
+            <span id="cartTotalDisplay">R$ 0,00</span>
+          </div>
+          <button id="btnFinalizar" onclick="iniciarCheckout()">
+            Finalizar Pedido ➔
+          </button>
+          <button id="btnLimpar" onclick="clearCart()">Limpar Tudo</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="popupCustom" class="popup">
+      <h3 id="popupCustomTitle" style="color: var(--amarelo); margin-top: 0">
+        Personalizar
+      </h3>
+      <div id="popupQuestion"></div>
+      <button class="btn-primary" onclick="confirmSimpleCustom()">
+        Confirmar e Adicionar
+      </button>
+      <button
+        onclick="closeModal('popupCustom')"
+        style="
+          width: 100%;
+          background: none;
+          border: none;
+          color: #bbb;
+          margin-top: 10px;
+          cursor: pointer;
+        "
+      >
+        Cancelar
+      </button>
+    </div>
+
+    <div id="popupCalda" class="popup">
+      <h3 style="color: var(--amarelo)">Escolha a Calda:</h3>
+      <button class="btn-primary" onclick="selectCalda('Morango')">
+        Morango
+      </button>
+      <button
+        class="btn-primary"
+        onclick="selectCalda('Chocolate')"
+        style="margin-top: 10px"
+      >
+        Chocolate
+      </button>
+      <button
+        class="btn-primary"
+        onclick="selectCalda('Caramelo')"
+        style="margin-top: 10px"
+      >
+        Caramelo
+      </button>
+      <button
+        onclick="closeCaldaPopup()"
+        style="
+          width: 100%;
+          background: none;
+          border: none;
+          color: #bbb;
+          margin-top: 15px;
+        "
+      >
+        Voltar
+      </button>
+    </div>
+
+    <div id="modalModoEntrega" class="popup">
+      <h3>Como deseja receber?</h3>
+      <button class="btn-primary" onclick="selecionarModo('retirada')">
+        Retirada (Balcão)
+      </button>
+      <button
+        class="btn-primary"
+        onclick="selecionarModo('entrega')"
+        style="margin-top: 10px"
+      >
+        Delivery (Entrega)
+      </button>
+    </div>
+
+    <div id="modalDados" class="popup">
+  <button class="btn-close-modal" onclick="closeModal('modalDados')">&times;</button>
+  <h3>Finalizar Pedido</h3>
+  <form onsubmit="enviarZap(event)">
+        <input type="text" id="inputNome" placeholder="Seu Nome" required />
+
+        <div id="areaEntrega" style="display: none">
+          <input type="text" id="inputRua" placeholder="Rua e Número" />
+          <select id="selectBairro" onchange="atualizarTaxaEntrega()">
+            <option value="" disabled selected>Selecione o Bairro</option>
+            <option value="Bairro 1" data-taxa="5">Bairro 1 (R$ 5,00)</option>
+            <option value="Bairro 2" data-taxa="7">Bairro 2 (R$ 7,00)</option>
+          </select>
+        </div>
+
+        <select id="selectPagamento" onchange="verificarTroco()" required>
+          <option value="" disabled selected>Forma de Pagamento</option>
+          <option value="PIX">PIX</option>
+          <option value="Cartão">Cartão</option>
+          <option value="Dinheiro">Dinheiro</option>
+        </select>
+
+        <div id="areaTroco" style="display: none">
+          <input
+            type="number"
+            id="inputTroco"
+            placeholder="Quanto você pagará ao todo?"
+          />
+        </div>
+
+        <div class="resumo-final">
+          <p>Subtotal: <span id="resumoSubtotal">R$ 0,00</span></p>
+          <p id="linhaTaxa">Taxa: <span id="resumoTaxa">R$ 0,00</span></p>
+          <p class="total-big">Total: <span id="resumoTotal">R$ 0,00</span></p>
+        </div>
+
+        <button type="submit" class="btn-whatsapp">
+          Enviar para o WhatsApp 📲
+        </button>
+      </form>
+    </div>
+
+    <div id="popupImage" class="popup" style="padding: 0; background: none">
+      <img
+        id="enlargedImage"
+        src=""
+        style="width: 100%; border-radius: 10px"
+        onclick="closeImagePopup()"
+      />
+    </div>
+
+    <audio id="soundClick" src="beep.mp3"></audio>
+    <audio id="soundAdd" src="beep.mp3"></audio>
+
+    <script src="zap.js"></script>
+  </body>
+</html>
