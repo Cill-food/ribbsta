@@ -1,3 +1,4 @@
+<!-- kds.html completo com modificações -->
 <!DOCTYPE html>
 <html lang="pt-br">
   <head>
@@ -25,6 +26,14 @@
         background-color: var(--fundo);
         color: var(--texto);
         overflow-x: hidden;
+      }
+
+      body.light-mode {
+        --fundo: #f0f0f0;
+        --texto: #333;
+        --preto-card: #fff;
+        --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.15);
       }
 
       h1 {
@@ -98,6 +107,12 @@
       .order-time {
         font-size: 0.95em;
         color: var(--cinza-claro);
+      }
+
+      .order-timer {
+        font-size: 0.95em;
+        color: var(--cinza-claro);
+        margin-left: 5px;
       }
 
       .order-items {
@@ -271,8 +286,197 @@
         transition: transform 0.2s;
       }
 
-      #historyToggleBtn:hover {
+      #settingsToggleBtn {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        padding: 15px 25px;
+        background-color: #333;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        cursor: pointer;
+        z-index: 900;
+        transition: transform 0.2s;
+      }
+
+      #historyToggleBtn:hover,
+      #settingsToggleBtn:hover {
         transform: scale(1.05);
+      }
+
+      /* --- SETTINGS SIDEBAR (NOVO DESIGN) --- */
+      #settingsSidebar {
+        position: fixed;
+        left: -450px;
+        top: 0;
+        width: 400px;
+        height: 100%;
+        background-color: #1a1a1a;
+        box-shadow: 5px 0 20px rgba(0, 0, 0, 0.6);
+        transition: left 0.3s ease;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #settingsSidebar.active {
+        left: 0;
+      }
+
+      #settingsHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #444;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        color: var(--cinza-claro);
+        cursor: pointer;
+      }
+
+      .close-btn:hover {
+        color: var(--amarelo);
+      }
+
+      .settings-content {
+        padding: 20px;
+        flex-grow: 1;
+        overflow-y: auto;
+      }
+
+      .settings-group {
+        margin-bottom: 30px;
+      }
+
+      .settings-group h4 {
+        color: var(--amarelo);
+        margin-bottom: 15px;
+        font-size: 1.2em;
+      }
+
+      .action-btn {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        background: var(--azul);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 10px;
+        transition: background 0.2s;
+      }
+
+      .action-btn:hover {
+        background: #0056b3;
+      }
+
+      .action-btn.outline {
+        background: none;
+        border: 2px solid var(--amarelo);
+        color: var(--amarelo);
+      }
+
+      .action-btn.outline:hover {
+        background: var(--amarelo);
+        color: #000;
+      }
+
+      .input-row {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+      }
+
+      .input-row label {
+        margin-bottom: 5px;
+        font-size: 0.9em;
+        color: #ccc;
+      }
+
+      .kds-input {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        background: #222;
+        color: white;
+        font-size: 1em;
+      }
+
+      .range-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .range-icon {
+        font-size: 1.2em;
+      }
+
+      input[type="range"] {
+        flex-grow: 1;
+      }
+
+      /* Switch Styles */
+      .switch-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #555;
+        transition: 0.4s;
+      }
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+      }
+      input:checked + .slider {
+        background-color: var(--verde);
+      }
+      input:checked + .slider:before {
+        transform: translateX(26px);
+      }
+      .slider.round {
+        border-radius: 34px;
+      }
+      .slider.round:before {
+        border-radius: 50%;
       }
 
       /* MODAIS */
@@ -313,6 +517,7 @@
         resize: none;
         margin: 15px 0;
         font-size: 1em;
+        box-sizing: border-box;
       }
 
       .kds-search-input {
@@ -323,21 +528,15 @@
         border-radius: 6px;
       }
 
-      .clear-history-btn {
-        margin-top: 10px;
-        background: none;
-        color: var(--vermelho);
-        border: 1px solid var(--vermelho);
-        padding: 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        width: 100%;
-      }
-
       @media (max-width: 600px) {
         #historySidebar {
           width: 100%;
           right: -100%;
+        }
+
+        #settingsSidebar {
+          width: 100%;
+          left: -100%;
         }
 
         #ordersContainer {
@@ -359,20 +558,134 @@
     </div>
 
     <button id="historyToggleBtn">Ver Histórico</button>
+    <button id="settingsToggleBtn">Configurações</button>
 
     <div id="historySidebar">
       <div id="historyHeader">
         <h3>Pedidos Concluídos</h3>
+        <input
+          id="historySearch"
+          class="kds-search-input"
+          placeholder="Buscar por nome/ID..."
+          oninput="kdsManager.renderHistory(this.value)"
+        />
         <button onclick="toggleHistorySidebar()">Fechar</button>
       </div>
 
       <div id="historyTotalBox">
         <h4>Total do Dia</h4>
         <p id="historyTotalValue">R$ 0,00</p>
+        <p id="statsLocal">Local: R$ 0,00</p>
+        <p id="statsViagem">Viagem: R$ 0,00</p>
+        <p id="statsPopular">Mais vendido: N/A</p>
       </div>
+
+      <button
+        onclick="kdsManager.exportHistory()"
+        style="padding: 10px; margin-bottom: 10px; cursor: pointer"
+      >
+        Exportar CSV
+      </button>
 
       <div id="historyContent">
         <p id="noHistoryMessage">Nenhum pedido no histórico.</p>
+      </div>
+    </div>
+
+    <div id="settingsSidebar" class="sidebar-left">
+      <div id="settingsHeader">
+        <h3>Configurações</h3>
+        <button class="close-btn" onclick="toggleSettingsSidebar()">✕</button>
+      </div>
+
+      <div class="settings-content">
+        <div class="settings-group">
+          <h4>Áudio e Alertas</h4>
+          <div class="input-row">
+            <label for="beepVolume">Volume do Beep</label>
+            <div class="range-wrapper">
+              <span class="range-icon">🔈</span>
+              <input
+                type="range"
+                id="beepVolume"
+                min="0"
+                max="1"
+                step="0.1"
+                value="1"
+                onchange="kdsManager.setBeepVolume(this.value)"
+              />
+              <span class="range-icon">🔊</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h4>Interface</h4>
+          <button class="action-btn outline" onclick="kdsManager.toggleTheme()">
+            🌗 Alternar Tema Claro/Escuro
+          </button>
+        </div>
+
+        <div class="settings-group">
+          <h4>Notificações do Navegador</h4>
+
+          <div class="switch-row">
+            <label for="enableNotifs" style="color: #ccc"
+              >Ativar Notificações</label
+            >
+            <label class="switch">
+              <input
+                type="checkbox"
+                id="enableNotifs"
+                checked
+                onchange="kdsManager.saveNotifSettings()"
+              />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="input-row">
+            <label>Título</label>
+            <input
+              type="text"
+              class="kds-input"
+              id="notifTitle"
+              value="Novo Pedido!"
+              onchange="kdsManager.saveNotifSettings()"
+            />
+          </div>
+
+          <div class="input-row">
+            <label>Mensagem</label>
+            <input
+              type="text"
+              class="kds-input"
+              id="notifBody"
+              value="Um novo pedido chegou à cozinha."
+              onchange="kdsManager.saveNotifSettings()"
+            />
+          </div>
+
+          <div class="input-row">
+            <label>URL do Ícone (Opcional)</label>
+            <input
+              type="text"
+              class="kds-input"
+              id="notifIcon"
+              placeholder="https://exemplo.com/icone.png"
+              onchange="kdsManager.saveNotifSettings()"
+            />
+          </div>
+        </div>
+        <div class="settings-group">
+          <h4>Cardápio</h4>
+          <button
+            class="action-btn outline"
+            onclick="kdsManager.openMenuManagementModal()"
+          >
+            📋 Gestão de Cardápio
+          </button>
+        </div>
       </div>
     </div>
 
@@ -400,6 +713,22 @@
       </div>
     </div>
 
-    <script src="kds.js"></script>
+    <div id="menuManagementModal" class="kds-modal" style="display: none">
+      <h3>Gestão de Cardápio</h3>
+      <div
+        id="menuManagementContent"
+        style="overflow-y: auto; max-height: 400px"
+      ></div>
+      <div class="order-footer" style="margin-top: 20px">
+        <button
+          class="accept-btn"
+          onclick="kdsManager.closeModal('menuManagementModal')"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="kds.js"></script>
   </body>
 </html>

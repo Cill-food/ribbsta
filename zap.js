@@ -1,5 +1,7 @@
 "use strict";
 
+import { enviarPedidoParaFirebase } from "./firebase.js";
+
 // --- Variáveis Globais ---
 let cardapioData = {};
 let cart = [];
@@ -47,15 +49,13 @@ async function loadMenuData() {
 }
 
 function salvarPedidoParaKDS(pedidoKDS) {
-  // O KDS monitora 'kds_orders', se salvar em 'pedidos' ele não verá!
-  const pedidosExistentes = JSON.parse(
-    localStorage.getItem("kds_orders") || "[]"
-  );
-  pedidosExistentes.push(pedidoKDS);
-  localStorage.setItem("kds_orders", JSON.stringify(pedidosExistentes));
-
-  // Isso avisa o KDS para atualizar a tela e tocar o som imediatamente
-  window.dispatchEvent(new Event("storage"));
+  enviarPedidoParaFirebase(pedidoKDS)
+    .then(() => {
+      console.log("Pedido enviado para o KDS (Firebase)");
+    })
+    .catch((err) => {
+      console.error("Erro ao enviar pedido:", err);
+    });
 }
 // --- Exibição do Cardápio ---
 function showCategory(cat, btn) {
@@ -82,6 +82,7 @@ function showCategory(cat, btn) {
     if (item.img) {
       const img = document.createElement("img");
       img.src = item.img;
+      // Garante que a função existe antes de chamar
       img.onclick = () => openImagePopup(item.img);
       card.appendChild(img);
     }
@@ -146,7 +147,15 @@ function showCategory(cat, btn) {
 // --- Carrinho ---
 function addToCart(name, price, custom = {}) {
   playSound("add");
-  cart.push({ item: name.trim(), price: price, quantity: 1, custom: custom });
+  const customKey = JSON.stringify(custom);
+  const existingIndex = cart.findIndex(
+    (c) => c.item === name.trim() && JSON.stringify(c.custom) === customKey
+  );
+  if (existingIndex !== -1) {
+    cart[existingIndex].quantity += 1;
+  } else {
+    cart.push({ item: name.trim(), price: price, quantity: 1, custom: custom });
+  }
   updateCartDisplay();
 }
 
@@ -157,8 +166,9 @@ function updateCartDisplay() {
   const cartIcon = document.getElementById("cartIcon");
   const footer = document.getElementById("footerCart");
 
-  const total = cart.reduce((acc, item) => acc + item.price, 0);
-  countSpan.textContent = cart.length;
+  const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const totalCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  countSpan.textContent = totalCount;
 
   if (totalSpan) totalSpan.textContent = `R$ ${total.toFixed(2)}`;
 
@@ -178,12 +188,26 @@ function updateCartDisplay() {
         <span style="font-size:0.75em; color:#aaa">${generateCustomDetails(
           c.custom
         )}</span>
-        <div>R$ ${c.price.toFixed(2)}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <button onclick="changeQuantity(${i}, -1)" style="background:var(--vermelho); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer">-</button>
+        <span>${c.quantity}</span>
+        <button onclick="changeQuantity(${i}, 1)" style="background:var(--verde-zap); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer">+</button>
+        <span>R$ ${(c.price * c.quantity).toFixed(2)}</span>
       </div>
       <button onclick="removeItem(${i})" style="background:none; border:none; color:var(--vermelho); font-size:1.2em; cursor:pointer">🗑️</button>
     `;
     container.appendChild(div);
   });
+}
+
+function changeQuantity(index, delta) {
+  cart[index].quantity += delta;
+  if (cart[index].quantity <= 0) {
+    removeItem(index);
+  } else {
+    updateCartDisplay();
+  }
 }
 
 function toggleCart() {
@@ -199,6 +223,7 @@ function removeItem(index) {
 function clearCart() {
   if (confirm("Limpar carrinho?")) {
     cart = [];
+    document.getElementById("footerCart").classList.remove("open");
     updateCartDisplay();
   }
 }
@@ -233,10 +258,8 @@ function openPopup(id) {
   backdrop.style.display = "block";
   popup.style.display = "block";
 
-  // Força reflow para garantir que a transição funcione
-  void popup.offsetHeight;
+  void popup.offsetHeight; // Força reflow
 
-  // Ativa as classes de animação
   backdrop.classList.add("show");
   popup.classList.add("show");
 }
@@ -246,31 +269,49 @@ function closeModal(id) {
   const popup = document.getElementById(id);
 
   if (popup) {
-    // Remove a classe de animação do modal específico
     popup.classList.remove("show");
   }
 
-  // Verifica se ainda existe algum outro modal aberto com a classe 'show'
-  // Isso evita que o fundo (blur) suma se você abrir um modal por cima de outro
   const openPopups = document.querySelectorAll(".popup.show");
 
   if (openPopups.length === 0) {
-    // Se não houver mais modais abertos, remove o blur do fundo
     backdrop.classList.remove("show");
-
-    // Espera a animação de fade/blur terminar (300ms) antes de dar display: none
     setTimeout(() => {
       backdrop.style.display = "none";
       if (popup) popup.style.display = "none";
     }, 300);
   } else {
-    // Se ainda houver modais, apenas esconde o modal atual imediatamente
     if (popup) {
       setTimeout(() => {
         popup.style.display = "none";
       }, 300);
     }
   }
+}
+
+// --- Lógica de Milk Shakes e Imagens (ADICIONADO) ---
+function selectCalda(calda) {
+  if (pendingMilkShake) {
+    addToCart(pendingMilkShake.name, pendingMilkShake.price, { calda: calda });
+    pendingMilkShake = null;
+    closeModal("popupCalda");
+  }
+}
+
+function closeCaldaPopup() {
+  closeModal("popupCalda");
+}
+
+function openImagePopup(src) {
+  const img = document.getElementById("enlargedImage");
+  if (img) {
+    img.src = src;
+    openPopup("popupImage");
+  }
+}
+
+function closeImagePopup() {
+  closeModal("popupImage");
 }
 
 // --- Personalização ---
@@ -413,8 +454,6 @@ function renderComboStep() {
       : "Finalizar Combo";
 
   openPopup("popupCustom");
-
-  // Rola para o topo do modal
   popup.scrollTop = 0;
 }
 
@@ -460,30 +499,12 @@ function nextComboStep() {
 }
 
 // --- Checkout ---
-// --- Alterado para fechar o carrinho ao iniciar o checkout ---
 function iniciarCheckout() {
   if (!cart.length) return;
-
-  // Minimiza o carrinho
   document.getElementById("footerCart").classList.remove("open");
-
-  // Abre o primeiro modal (Modo de Entrega)
   openPopup("modalModoEntrega");
 }
 
-// --- Alterado para fechar o carrinho ao limpar tudo ---
-function clearCart() {
-  if (confirm("Limpar carrinho?")) {
-    cart = [];
-
-    // Minimiza o carrinho removendo a classe 'open'
-    document.getElementById("footerCart").classList.remove("open");
-
-    updateCartDisplay();
-  }
-}
-
-// Suas outras funções permanecem iguais
 function selecionarModo(modo) {
   modeEntrega = modo;
   closeModal("modalModoEntrega");
@@ -501,7 +522,7 @@ function atualizarTaxaEntrega() {
     const sel = document.getElementById("selectBairro");
     taxa = parseFloat(sel.options[sel.selectedIndex]?.dataset.taxa || 0);
   }
-  const sub = cart.reduce((acc, i) => acc + i.price, 0);
+  const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
   document.getElementById("resumoSubtotal").textContent = `R$ ${sub.toFixed(
     2
   )}`;
@@ -522,37 +543,27 @@ function enviarZap(e) {
   e.preventDefault();
   const nome = document.getElementById("inputNome").value;
   const pag = document.getElementById("selectPagamento").value;
-
-  // Cálculo do total para o KDS
   const totalTexto = document.getElementById("resumoTotal").textContent;
   const totalNumerico = parseFloat(
     totalTexto.replace("R$", "").replace(",", ".").trim()
   );
 
-  // Envio detalhado para o KDS compatível com kds.js
   salvarPedidoParaKDS({
-    id: Date.now().toString(), // KDS espera ID único
-    nomeCliente: nome, // kds.js usa 'nomeCliente'
+    id: Date.now().toString(),
+    nomeCliente: nome,
     itens: cart.map((c) => ({
       item: c.item,
       quantity: c.quantity,
-      custom: c.custom, // Envia o objeto original para a função formatDetails do KDS
+      custom: c.custom,
     })),
-    pagamentos: [
-      {
-        // kds.js espera um array de pagamentos
-        method: pag,
-        value: totalNumerico,
-      },
-    ],
+    pagamentos: [{ method: pag, value: totalNumerico }],
     total: totalNumerico,
-    tipoConsumo: modeEntrega === "entrega" ? "Para Viagem" : "Consumo Local", // Ativa os badges no KDS
-    status: "Pendente", // Status inicial compatível com CSS do KDS
+    tipoConsumo: modeEntrega === "entrega" ? "Para Viagem" : "Consumo Local",
+    status: "Pendente",
     dataHora: new Date().toLocaleTimeString(),
-    observacao: "", // Inicializa campo de observação
+    observacao: "",
   });
 
-  // Montagem da mensagem do WhatsApp
   let msg = `*PEDIDO RIBBSZN - ${modeEntrega.toUpperCase()}*%0a*Cliente:* ${nome}%0a`;
   if (modeEntrega === "entrega")
     msg += `*Endereço:* ${document.getElementById("inputRua").value}, ${
@@ -568,16 +579,26 @@ function enviarZap(e) {
 
   msg += `%0a*Pagamento:* ${pag}%0a*TOTAL:* ${totalTexto}`;
 
-  // Abre o WhatsApp
   window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, "_blank");
 
-  // --- RESET DO TOTEM ---
   cart = [];
   updateCartDisplay();
   closeModal("modalDados");
   document.getElementById("footerCart").classList.remove("open");
   e.target.reset();
-
-  // Volta para a categoria inicial
   showCategory("Promoções", document.querySelector(".sessao-topo button"));
 }
+// Expose functions used in inline onclick handlers
+window.showCategory = showCategory;
+window.toggleCart = toggleCart;
+window.removeItem = removeItem; // For cart item removal
+window.changeQuantity = changeQuantity; // For quantity buttons in cart
+window.clearCart = clearCart; // For "Limpar Tudo" button
+window.iniciarCheckout = iniciarCheckout; // For "Finalizar Pedido" button
+window.selectCalda = selectCalda; // For calda selection buttons
+window.closeCaldaPopup = closeCaldaPopup; // For "Voltar" in calda popup
+window.selecionarModo = selecionarModo; // For modo entrega buttons
+window.atualizarTaxaEntrega = atualizarTaxaEntrega; // For bairro select onchange
+window.verificarTroco = verificarTroco; // For pagamento select onchange
+window.enviarZap = enviarZap; // For form onsubmit
+window.closeImagePopup = closeImagePopup; // For enlarged image onclick

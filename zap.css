@@ -118,12 +118,12 @@ header {
 }
 
 .btn-personalizar {
-  background: transparent;
-  color: #fff;
-  border: 1px solid var(--amarelo);
+  background: var(--amarelo);
+  border: none;
   padding: 12px;
   border-radius: 8px;
   font-weight: bold;
+  color: #000;
   cursor: pointer;
 }
 
