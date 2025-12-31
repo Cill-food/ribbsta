@@ -26,6 +26,12 @@ const sounds = {
   add: document.getElementById("soundAdd"),
 };
 
+// Função auxiliar para Milk Shakes no upsell
+function setPendingMilkShake(name, price) {
+  pendingMilkShake = { name, price };
+  openPopup("popupCalda");
+}
+
 function playSound(type) {
   if (sounds[type]) sounds[type].play().catch(() => {});
 }
@@ -42,7 +48,7 @@ async function loadMenuData() {
     cardapioData = await response.json();
     showCategory("Promoções", document.querySelector(".sessao-topo button"));
   } catch (e) {
-    console.error("Erro ao carregar cardapio:", e);
+    console.error("Erro ao carregar cardápio:", e);
     document.getElementById("cardapio").innerHTML =
       "<p>Erro ao carregar cardápio.</p>";
   }
@@ -199,6 +205,9 @@ function updateCartDisplay() {
     `;
     container.appendChild(div);
   });
+
+  // Atualiza a área de Upsell
+  renderUpsell();
 }
 
 function changeQuantity(index, delta) {
@@ -249,7 +258,90 @@ function generateCustomDetails(custom) {
   }
   return parts.join(" | ");
 }
+// --- Lógica de Upsell (COMPLETA: 6 ITENS + PERSONALIZAÇÃO) ---
+function renderUpsell() {
+  const targetCategories = ["Bebidas", "Batata Frita", "Milk Shakes"];
+  let potentialUpsells = [];
 
+  // 1. Mapeamos os itens disponíveis com seus índices originais para o modal funcionar
+  targetCategories.forEach((cat) => {
+    if (cardapioData[cat]) {
+      cardapioData[cat].forEach((item, index) => {
+        // Verifica se o item já está no carrinho para não sugerir repetido
+        const isInCart = cart.some((cartItem) =>
+          cartItem.item.includes(item.nome)
+        );
+
+        if (!isInCart) {
+          potentialUpsells.push({
+            ...item,
+            category: cat,
+            originalIndex: index,
+          });
+        }
+      });
+    }
+  });
+
+  const container = document.getElementById("upsellContainer");
+  const list = document.getElementById("upsellList");
+
+  // Se não houver o que sugerir ou o carrinho estiver vazio, esconde a seção
+  if (potentialUpsells.length === 0 || cart.length === 0) {
+    if (container) container.style.display = "none";
+    return;
+  }
+
+  // Sorteia e limita a 6 itens
+  const suggestions = potentialUpsells
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 6);
+
+  if (container) container.style.display = "block";
+  list.innerHTML = "";
+
+  suggestions.forEach((item) => {
+    const firstOptionIndex = 0;
+    const hasOptions = item.opcoes && item.opcoes.length > 0;
+    const firstOptionName = hasOptions ? item.opcoes[0] : "";
+
+    // Define o preço (se for array pega o primeiro, se não pega o valor direto)
+    const basePrice = Array.isArray(item.precoBase)
+      ? item.precoBase[0]
+      : item.precoBase || 0;
+
+    // Nome Completo: Nome do Produto + Nome da Opção (ex: Coca Cola + Lata)
+    const fullName =
+      item.nome +
+      (firstOptionName && firstOptionName !== item.nome
+        ? " " + firstOptionName
+        : "");
+    const imgSrc = item.img || "img/default.png";
+
+    const card = document.createElement("div");
+    card.className = "upsell-card";
+
+    // --- Definição da Ação de Clique ---
+    let actionOnClick;
+    if (item.category === "Milk Shakes") {
+      // Use a função auxiliar para evitar erro de escopo
+      actionOnClick = `setPendingMilkShake('${fullName}', ${basePrice})`;
+    } else {
+      // ITENS NORMAIS: Abrem o modal de personalização (ingredientes/extras)
+      // Passa a Categoria, o Índice Real no JSON e o índice da opção 0
+      actionOnClick = `openPopupCustom('${item.category}', ${item.originalIndex}, ${firstOptionIndex})`;
+    }
+
+    card.innerHTML = `
+      <img src="${imgSrc}" alt="${fullName}" onclick="window.openImagePopup('${imgSrc}')" style="cursor:pointer" />
+      <h4>${fullName}</h4>
+      <span class="price">R$ ${parseFloat(basePrice).toFixed(2)}</span>
+      <button onclick="${actionOnClick}">Personalizar ✚</button>
+    `;
+
+    list.appendChild(card);
+  });
+}
 // --- Modais ---
 function openPopup(id) {
   const backdrop = document.getElementById("backdrop");
@@ -289,7 +381,7 @@ function closeModal(id) {
   }
 }
 
-// --- Lógica de Milk Shakes e Imagens (ADICIONADO) ---
+// --- Lógica de Milk Shakes e Imagens ---
 function selectCalda(calda) {
   if (pendingMilkShake) {
     addToCart(pendingMilkShake.name, pendingMilkShake.price, { calda: calda });
@@ -347,7 +439,7 @@ function openPopupCustom(cat, itemIndex, optionIndex) {
   if (ingredientes && ingredientes.length > 0) {
     container.innerHTML += "<h4>Retirar Ingredientes:</h4>";
     ingredientes.forEach((ing) => {
-      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}"><span>Retirar ${ing}</span></label>`;
+      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}" /><span>Retirar ${ing}</span></label>`;
     });
   }
 
@@ -357,7 +449,7 @@ function openPopupCustom(cat, itemIndex, optionIndex) {
     extras.forEach((ext) => {
       container.innerHTML += `<label><input type="checkbox" data-type="extra" data-price="${
         ext.preco
-      }" value="${ext.nome}"><span>${ext.nome} (+R$ ${ext.preco.toFixed(
+      }" value="${ext.nome}" /><span>${ext.nome} (+R$ ${ext.preco.toFixed(
         2
       )})</span></label>`;
     });
@@ -432,7 +524,7 @@ function renderComboStep() {
   }
 
   ings.forEach((ing) => {
-    container.innerHTML += `<label><input type="checkbox" data-type="remove-combo" value="${ing}"><span>Sem ${ing}</span></label>`;
+    container.innerHTML += `<label><input type="checkbox" data-type="remove-combo" value="${ing}" /><span>Sem ${ing}</span></label>`;
   });
 
   if (paidExtras.length > 0) {
@@ -440,7 +532,7 @@ function renderComboStep() {
     paidExtras.forEach((ext) => {
       container.innerHTML += `<label><input type="checkbox" data-type="extra-combo" data-price="${
         ext.preco
-      }" value="${ext.nome}"><span>${ext.nome} (+R$ ${ext.preco.toFixed(
+      }" value="${ext.nome}" /><span>${ext.nome} (+R$ ${ext.preco.toFixed(
         2
       )})</span></label>`;
     });
@@ -451,7 +543,7 @@ function renderComboStep() {
   btn.textContent =
     currentBurgerIndex < item.burgers.length - 1
       ? "Próximo Lanche"
-      : "Finalizar Combo";
+      : "Adicionar ao Carrinho";
 
   openPopup("popupCustom");
   popup.scrollTop = 0;
@@ -588,17 +680,24 @@ function enviarZap(e) {
   e.target.reset();
   showCategory("Promoções", document.querySelector(".sessao-topo button"));
 }
-// Expose functions used in inline onclick handlers
+
+// --- Exposição de funções para o escopo Global (Necessário para o onclick do HTML) ---
 window.showCategory = showCategory;
 window.toggleCart = toggleCart;
-window.removeItem = removeItem; // For cart item removal
-window.changeQuantity = changeQuantity; // For quantity buttons in cart
-window.clearCart = clearCart; // For "Limpar Tudo" button
-window.iniciarCheckout = iniciarCheckout; // For "Finalizar Pedido" button
-window.selectCalda = selectCalda; // For calda selection buttons
-window.closeCaldaPopup = closeCaldaPopup; // For "Voltar" in calda popup
-window.selecionarModo = selecionarModo; // For modo entrega buttons
-window.atualizarTaxaEntrega = atualizarTaxaEntrega; // For bairro select onchange
-window.verificarTroco = verificarTroco; // For pagamento select onchange
-window.enviarZap = enviarZap; // For form onsubmit
-window.closeImagePopup = closeImagePopup; // For enlarged image onclick
+window.removeItem = removeItem;
+window.changeQuantity = changeQuantity;
+window.clearCart = clearCart;
+window.iniciarCheckout = iniciarCheckout;
+window.selectCalda = selectCalda;
+window.closeCaldaPopup = closeCaldaPopup;
+window.selecionarModo = selecionarModo;
+window.atualizarTaxaEntrega = atualizarTaxaEntrega;
+window.verificarTroco = verificarTroco;
+window.enviarZap = enviarZap;
+window.closeImagePopup = closeImagePopup;
+window.addToCart = addToCart;
+window.openPopup = openPopup;
+window.closeModal = closeModal;
+window.openPopupCustom = openPopupCustom; // ESSA LINHA É CRUCIAL PARA O UPSELL
+window.confirmSimpleCustom = confirmSimpleCustom;
+window.setPendingMilkShake = setPendingMilkShake; // Nova exposição para o upsell de Milk Shakes

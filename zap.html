@@ -21,6 +21,7 @@
         <div class="logo-area">
           <span class="logo-text">RibbsZn</span>
         </div>
+      </div>
     </header>
 
     <div class="sessao-topo" id="sessao-topo">
@@ -44,6 +45,11 @@
 
       <div id="cartItemsContainer">
         <div id="cartItems"></div>
+
+        <div id="upsellContainer" style="display: none">
+          <div class="upsell-header">Aproveite também:</div>
+          <div class="upsell-scroll" id="upsellList"></div>
+        </div>
 
         <div class="cart-actions">
           <div
@@ -137,9 +143,11 @@
     </div>
 
     <div id="modalDados" class="popup">
-  <button class="btn-close-modal" onclick="closeModal('modalDados')">&times;</button>
-  <h3>Finalizar Pedido</h3>
-  <form onsubmit="enviarZap(event)">
+      <button class="btn-close-modal" onclick="closeModal('modalDados')">
+        &times;
+      </button>
+      <h3>Finalizar Pedido</h3>
+      <form onsubmit="enviarZap(event)">
         <input type="text" id="inputNome" placeholder="Seu Nome" required />
 
         <div id="areaEntrega" style="display: none">

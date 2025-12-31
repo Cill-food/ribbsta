@@ -244,7 +244,7 @@ header {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.9); /* Inicia menor para animação */
+  transform: translate(-50%, -50%) scale(0.9);
   background: #2c2c2c;
   width: 95%;
   max-width: 390px;
@@ -254,13 +254,13 @@ header {
   max-height: 80vh;
   overflow-y: auto;
   box-sizing: border-box;
-  transition: all 0.3s ease-out; /* Transição suave */
-  border: 1px solid rgba(255, 213, 0, 0.2); /* Borda amarela sutil */
+  transition: all 0.3s ease-out;
+  border: 1px solid rgba(255, 213, 0, 0.2);
 }
 
 .popup.show {
   display: block;
-  transform: translate(-50%, -50%) scale(1); /* Ganha escala ao aparecer */
+  transform: translate(-50%, -50%) scale(1);
 }
 
 /* Botão de Fechar (X) */
@@ -327,12 +327,7 @@ header {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(
-    0,
-    0,
-    0,
-    0.5
-  ); /* Escurece um pouco menos para destacar o blur */
+  background: rgba(0, 0, 0, 0.5);
   z-index: 950;
   transition: all 0.3s ease;
 }
@@ -405,4 +400,90 @@ select {
 .btn-back:disabled {
   background: #555;
   cursor: not-allowed;
+}
+
+/* --- Upsell (Sugestões no Carrinho) --- */
+#upsellContainer {
+  margin-top: auto;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid #333;
+  border-bottom: 1px solid #333;
+}
+
+.upsell-header {
+  font-size: 0.9em;
+  color: var(--amarelo);
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.upsell-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+  scrollbar-width: none; /* Firefox */
+}
+
+.upsell-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.upsell-card {
+  min-width: 110px;
+  max-width: 110px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.upsell-card img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin-bottom: 5px;
+}
+
+.upsell-card h4 {
+  font-size: 0.75em;
+  margin: 0 0 4px 0;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.4em; /* Limita altura do texto */
+}
+
+.upsell-card .price {
+  font-size: 0.8em;
+  color: var(--verde-zap);
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.upsell-card button {
+  width: 100%;
+  background: var(--amarelo);
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 0.75em;
+  font-weight: bold;
+  cursor: pointer;
+  color: #000;
+}
+
+.upsell-card button:active {
+  transform: scale(0.95);
 }
