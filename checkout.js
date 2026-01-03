@@ -1,6 +1,6 @@
 /**
  * CHECKOUT.JS - RibbsZn
- * Cálculo de Frete por Faixas de Distância
+ * Validação e Cálculo de Frete por Distância Real
  */
 
 const ORIGEM = "Rua Lauro de Souza, 465, Campo Grande, Recife - PE";
@@ -20,121 +20,130 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Renderizar Itens
+  // 1. Renderizar Itens e Calcular Subtotal
   cart.forEach((item) => {
     subtotal += item.price * item.quantity;
     const div = document.createElement("div");
     div.className = "total-row";
-    div.style.display = "flex";
-    div.style.justifyContent = "space-between";
-    div.style.marginBottom = "8px";
 
-    let detalhes = item.custom ? ` <small>(${item.custom})</small>` : "";
-    div.innerHTML = `<span>${item.quantity}x ${item.item}${detalhes}</span> 
-                         <span>R$ ${(item.price * item.quantity).toFixed(
-                           2
-                         )}</span>`;
+    // Função para formatar detalhes de personalização (vinda do zap.js)
+    let detalhesStr = "";
+    if (item.custom) {
+      if (typeof item.custom === "string") detalhesStr = item.custom;
+      else if (item.custom.removed)
+        detalhesStr = "Sem: " + item.custom.removed.join(", ");
+    }
+
+    div.innerHTML = `<span>${item.quantity}x ${
+      item.item
+    } <small>${detalhesStr}</small></span> 
+                     <span>R$ ${(item.price * item.quantity).toFixed(
+                       2
+                     )}</span>`;
     listaItens.appendChild(div);
   });
 
-  atualizarTotais();
+  document.getElementById("subtotal").textContent = `R$ ${subtotal.toFixed(2)}`;
+  atualizarTotal(subtotal, 0);
 
-  function atualizarTotais() {
-    document.getElementById("subtotal").textContent = `R$ ${subtotal.toFixed(
-      2
-    )}`;
-    if (taxaEntrega > 0) {
-      document.getElementById("taxa").textContent = `R$ ${taxaEntrega.toFixed(
-        2
-      )}`;
-      document.getElementById("total").textContent = `R$ ${(
-        subtotal + taxaEntrega
-      ).toFixed(2)}`;
-    } else {
-      document.getElementById("taxa").textContent = "A calcular...";
-      document.getElementById("total").textContent = `R$ ${subtotal.toFixed(
-        2
-      )}`;
-    }
-  }
-
-  // Função para definir o valor com base na sua tabela
-  function calcularPrecoPorDistancia(metros) {
-    if (metros <= 200) return 1.0; // Até 100m e 200m
-    if (metros <= 300) return 2.0;
-    if (metros <= 500) return 3.0;
-    if (metros <= 1000) return 4.0; // Até 1km
-    if (metros <= 2000) return 5.0; // Até 2km
-
-    // Regra para distâncias maiores que 2km (Ex: R$ 2,00 por km adicional)
-    const kmExtra = Math.ceil((metros - 2000) / 1000);
-    return 5.0 + kmExtra * 2.0;
-  }
-
-  // Cálculo via Google Maps
+  // 2. Lógica de Cálculo de Taxa
   btnCalcular.addEventListener("click", () => {
     const rua = document.getElementById("rua").value;
     const bairro = document.getElementById("bairro").value;
 
     if (!rua || !bairro) {
-      alert("Preencha o endereço completo primeiro.");
+      alert("Por favor, preencha a Rua e o Bairro para calcular o frete.");
       return;
     }
 
-    const destino = `${rua}, ${bairro}, Pernambuco, Brasil`;
+    const enderecoDestino = `${rua}, ${bairro}, Recife - PE`;
     const service = new google.maps.DistanceMatrixService();
 
     service.getDistanceMatrix(
       {
         origins: [ORIGEM],
-        destinations: [destino],
-        travelMode: "DRIVING",
+        destinations: [enderecoDestino],
+        travelMode: google.maps.TravelMode.DRIVING,
       },
       (response, status) => {
         if (status === "OK") {
-          const results = response.rows[0].elements[0];
+          const element = response.rows[0].elements[0];
 
-          if (results.status === "OK") {
-            const distanciaMetros = results.distance.value; // Distância em metros
-            taxaEntrega = calcularPrecoPorDistancia(distanciaMetros);
+          if (element.status === "OK") {
+            const distanciaMetros = element.distance.value; // Distância em metros
 
-            atualizarTotais();
+            // --- VALIDAÇÃO DAS FAIXAS DE PREÇO ---
+            if (distanciaMetros <= 200) {
+              taxaEntrega = 1.0;
+            } else if (distanciaMetros <= 300) {
+              taxaEntrega = 2.0;
+            } else if (distanciaMetros <= 500) {
+              taxaEntrega = 3.0;
+            } else if (distanciaMetros <= 1000) {
+              taxaEntrega = 4.0;
+            } else if (distanciaMetros <= 2000) {
+              taxaEntrega = 5.0;
+            } else if (distanciaMetros <= 5000) {
+              taxaEntrega = 7.0;
+            } else {
+              alert("Endereço fora da nossa área de entrega (máximo 5km).");
+              taxaEntrega = 0;
+              btnFinalizar.disabled = true;
+              btnFinalizar.style.opacity = "0.5";
+              return;
+            }
 
+            // Atualiza Interface
+            document.getElementById(
+              "taxa"
+            ).textContent = `R$ ${taxaEntrega.toFixed(2)}`;
+            atualizarTotal(subtotal, taxaEntrega);
+
+            // Ativa botão de finalizar
             btnFinalizar.disabled = false;
             btnFinalizar.style.opacity = "1";
 
             const distTexto =
               distanciaMetros >= 1000
                 ? (distanciaMetros / 1000).toFixed(1) + "km"
-                : distanciaMetros + " metros";
+                : distanciaMetros + "m";
 
             alert(
-              `Endereço localizado!\nDistância: ${distTexto}\nTaxa de Entrega: R$ ${taxaEntrega.toFixed(
+              `Distância: ${distTexto}\nTaxa de Entrega: R$ ${taxaEntrega.toFixed(
                 2
               )}`
             );
           } else {
-            alert("Endereço não localizado. Tente incluir o número da casa.");
+            alert(
+              "Não conseguimos calcular a rota para este endereço. Verifique o número da casa."
+            );
           }
         } else {
-          alert("Erro na API: " + status);
+          alert("Erro na API do Google: " + status);
         }
       }
     );
   });
 
-  // Enviar WhatsApp
+  function atualizarTotal(sub, taxa) {
+    const total = sub + taxa;
+    document.getElementById("total").textContent = `R$ ${total.toFixed(2)}`;
+  }
+
+  // 3. Enviar para o WhatsApp
   document.getElementById("formCheckout").addEventListener("submit", (e) => {
     e.preventDefault();
     const nome = document.getElementById("nome").value;
     const rua = document.getElementById("rua").value;
     const bairro = document.getElementById("bairro").value;
+    const ref = document.getElementById("referencia").value;
     const pag = document.getElementById("pagamento").value;
     const totalFinal = document.getElementById("total").textContent;
 
     let msg = `*NOVO PEDIDO - RIBBSZN*%0a%0a`;
     msg += `*Cliente:* ${nome}%0a`;
     msg += `*Endereço:* ${rua}, ${bairro}%0a`;
+    if (ref) msg += `*Referência:* ${ref}%0a`;
     msg += `%0a*--- ITENS ---*%0a`;
 
     cart.forEach((c) => {
@@ -142,9 +151,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     msg += `%0a*Pagamento:* ${pag}%0a`;
+    msg += `*Taxa de Entrega:* R$ ${taxaEntrega.toFixed(2)}%0a`;
     msg += `*TOTAL:* ${totalFinal}`;
 
-    window.open(`https://wa.me/5581985299617?text=${msg}`, "_blank");
+    const whatsappNumber = "5581985299617";
+    window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, "_blank");
+
     localStorage.removeItem("ribbs_cart");
     window.location.href = "zap.html";
   });
