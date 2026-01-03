@@ -569,7 +569,9 @@ class KDSManager {
 
 const kdsManager = new KDSManager();
 
-// Funções globais para botões inline
+window.kdsManager = kdsManager;
+
+// Funções globais para botões inline (que você já tem)
 window.acceptOrder = (id) => kdsManager.acceptOrder(id);
 window.openObservationModal = (id) => kdsManager.openObservationModal(id);
 window.printOrder = (id) => kdsManager.printOrder(id);
