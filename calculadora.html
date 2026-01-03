@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ribbs Zn - Calculadora Recife/Olinda</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+      }
+      .box {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+      }
+      h2 {
+        color: #e63946;
+        text-align: center;
+        margin-bottom: 5px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #777;
+        font-size: 0.85rem;
+        margin-bottom: 25px;
+      }
+      label {
+        font-weight: bold;
+        color: #333;
+        font-size: 0.9rem;
+      }
+      input {
+        width: 100%;
+        padding: 14px;
+        border: 2px solid #eee;
+        border-radius: 8px;
+        box-sizing: border-box;
+        font-size: 1rem;
+        margin-top: 8px;
+        transition: 0.3s;
+      }
+      input:focus {
+        border-color: #e63946;
+        outline: none;
+      }
+      button#btn-calcular {
+        width: 100%;
+        padding: 15px;
+        background: #1d3557;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: bold;
+        margin-top: 15px;
+        transition: 0.2s;
+      }
+      button#btn-calcular:hover {
+        background: #14263d;
+      }
+      #resultado {
+        margin-top: 25px;
+        padding: 20px;
+        border-radius: 10px;
+        display: none;
+        text-align: center;
+        background: #fff;
+        border: 1px dashed #ccc;
+      }
+      .valor-entrega {
+        color: #2b9348;
+        font-size: 2.2rem;
+        font-weight: bold;
+        display: block;
+        margin: 10px 0;
+      }
+      .btn-whatsapp {
+        display: inline-block;
+        background: #25d366;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .btn-whatsapp:hover {
+        background: #1ebd5b;
+      }
+      .info-km {
+        font-size: 0.9rem;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>Ribbs Zn</h2>
+      <p class="subtitle">Entregas em Recife e Olinda</p>
+
+      <label>Endereço de Entrega:</label>
+      <input type="text" id="destino" placeholder="Rua, número, bairro..." />
+
+      <button id="btn-calcular" onclick="calcularEntrega()">
+        Calcular Taxa
+      </button>
+
+      <div id="resultado">
+        <span class="info-km"
+          >Distância: <strong id="txt-distancia"></strong
+        ></span>
+
+        <div id="area-preco">
+          <span class="valor-entrega" id="txt-preco"></span>
+        </div>
+
+        <div id="area-whatsapp" style="display: none">
+          <p style="color: #d62828; font-weight: bold; margin-bottom: 5px">
+            Acima de 2km
+          </p>
+          <a href="#" id="link-whatsapp" target="_blank" class="btn-whatsapp"
+            >Consultar via WhatsApp</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD2QL7hEmor0FQxBWS9p5wAk3XnczkIzXo&libraries=places"></script>
+
+    <script>
+      // 1. Configuração do Autocomplete restrito a Recife e Olinda
+      const inputDestino = document.getElementById("destino");
+
+      // Área retangular cobrindo Recife e Olinda
+      const recifeOlindaBounds = new google.maps.LatLngBounds(
+        new google.maps.LatLng(-8.15, -35.0),
+        new google.maps.LatLng(-7.9, -34.8)
+      );
+
+      const options = {
+        bounds: recifeOlindaBounds,
+        componentRestrictions: { country: "br" },
+        fields: ["formatted_address", "geometry"],
+        strictBounds: true,
+      };
+
+      const autocomplete = new google.maps.places.Autocomplete(
+        inputDestino,
+        options
+      );
+
+      // 2. Dados da Ribbs Zn
+      const origemFixa =
+        "Rua Lauro de Souza, 465 - Campo Grande, Recife - PE, 52040-370";
+      const WHATSAPP_LOJA = "5581996469626";
+
+      function calcularPreco(metros) {
+        if (metros <= 200) return 1.0;
+        if (metros <= 300) return 2.0;
+        if (metros <= 500) return 3.0;
+        if (metros <= 1000) return 4.0;
+        if (metros <= 2000) return 5.0;
+        return null;
+      }
+
+      function calcularEntrega() {
+        const destino = inputDestino.value;
+        if (!destino) return alert("Por favor, informe o endereço.");
+
+        const service = new google.maps.DistanceMatrixService();
+        service.getDistanceMatrix(
+          {
+            origins: [origemFixa],
+            destinations: [destino],
+            travelMode: google.maps.TravelMode.DRIVING,
+          },
+          (response, status) => {
+            if (status === "OK") {
+              const elemento = response.rows[0].elements[0];
+
+              if (elemento.status === "OK") {
+                const metros = elemento.distance.value;
+                const preco = calcularPreco(metros);
+
+                document.getElementById("resultado").style.display = "block";
+                document.getElementById("txt-distancia").innerText =
+                  elemento.distance.text;
+
+                if (preco !== null) {
+                  document.getElementById("area-preco").style.display = "block";
+                  document.getElementById("area-whatsapp").style.display =
+                    "none";
+                  document.getElementById("txt-preco").innerText = `R$ ${preco
+                    .toFixed(2)
+                    .replace(".", ",")}`;
+                } else {
+                  document.getElementById("area-preco").style.display = "none";
+                  document.getElementById("area-whatsapp").style.display =
+                    "block";
+
+                  const msg = encodeURIComponent(
+                    `Olá! Gostaria de consultar a taxa para: ${destino}. Distância: ${elemento.distance.text}.`
+                  );
+                  document.getElementById(
+                    "link-whatsapp"
+                  ).href = `https://wa.me/${WHATSAPP_LOJA}?text=${msg}`;
+                }
+              } else {
+                alert("Endereço não encontrado ou fora da zona de alcance.");
+              }
+            } else {
+              alert("Erro na chave de API ou conexão.");
+            }
+          }
+        );
+      }
+    </script>
+  </body>
+</html>
