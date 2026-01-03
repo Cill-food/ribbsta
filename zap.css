@@ -55,6 +55,7 @@ header {
   border-radius: 20px;
   white-space: nowrap;
   font-weight: bold;
+  cursor: pointer;
 }
 
 .sessao-topo button.active {
@@ -62,7 +63,7 @@ header {
   color: #000;
 }
 
-/* --- Cards --- */
+/* --- Cards do Cardápio --- */
 .cardapio {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -107,16 +108,7 @@ header {
   margin-top: auto;
 }
 
-.btn-add {
-  background: var(--amarelo);
-  border: none;
-  padding: 12px;
-  border-radius: 8px;
-  font-weight: bold;
-  color: #000;
-  cursor: pointer;
-}
-
+.btn-add,
 .btn-personalizar {
   background: var(--amarelo);
   border: none;
@@ -127,115 +119,149 @@ header {
   cursor: pointer;
 }
 
-/* --- Carrinho Flutuante --- */
+/* --- Carrinho Modernizado (Estilo Inferior) --- */
 #footerCart {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 55px;
-  height: 55px;
-  background: #1e1e1e;
-  border-radius: 50%;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border-top: 3px solid var(--amarelo);
   z-index: 1000;
-  box-shadow: 0 3px 10px rgba(237, 213, 31, 0.6);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  transform: translateY(calc(100% - 60px));
 }
 
 #footerCart.open {
-  width: 320px;
-  height: 85vh;
-  border-radius: 15px;
-  background: #222;
-  top: 75px;
-  right: 15px;
+  transform: translateY(0);
 }
 
 .cart-header {
-  min-height: 55px;
+  padding: 15px 20px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
   cursor: pointer;
-  color: #000;
-  font-weight: bold;
+  min-height: 60px;
+  box-sizing: border-box;
 }
 
-#footerCart.open .cart-header {
-  justify-content: space-between;
-  padding: 0 15px;
-  color: var(--amarelo);
-  background: #111;
-  border-bottom: 1px solid #333;
+.cart-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 #cartCount {
-  background: var(--vermelho);
-  color: white;
-  border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 11px;
-  position: absolute;
-  top: 5px;
-  right: 5px;
+  background: var(--amarelo);
+  color: #000;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.85em;
 }
 
-#footerCart.open #cartCount {
-  position: static;
+#cartTotalDisplay {
+  font-size: 1.2em;
+  font-weight: 800;
+  color: var(--amarelo);
 }
 
 #cartItemsContainer {
-  display: none;
+  display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-#footerCart.open #cartItemsContainer {
-  display: flex;
+  overflow: hidden;
 }
 
 #cartItems {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 0 20px;
+  max-height: 50vh;
 }
 
 .cart-item {
   display: flex;
   justify-content: space-between;
-  padding: 12px;
+  align-items: center;
+  padding: 15px 0;
   border-bottom: 1px solid #333;
-  font-size: 0.9em;
+}
+
+.cart-item strong {
+  display: block;
+  font-size: 1em;
+  margin-bottom: 4px;
+  color: #fff;
+}
+
+.cart-item small {
+  color: #aaa;
+  font-size: 0.8em;
+  line-height: 1.4;
+}
+
+.cart-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #2a2a2a;
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+
+.cart-controls button {
+  background: none;
+  border: none;
+  color: var(--amarelo);
+  font-size: 1.2em;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.cart-controls span {
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
 }
 
 .cart-actions {
-  padding: 15px;
-  background: #111;
+  padding: 20px;
+  background: #1a1a1a;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 #btnFinalizar {
   background: var(--verde-zap);
-  color: #fff;
+  color: #000;
   border: none;
-  padding: 15px;
-  border-radius: 8px;
-  font-weight: bold;
+  padding: 8px;
+  width: 100%;
+  border-radius: 12px;
+  font-size: 1.1em;
+  font-weight: 700;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: transform 0.2s;
 }
 
 #btnLimpar {
-  background: var(--vermelho);
-  color: #fff;
-  border: none;
-  padding: 10px;
+  background: transparent;
+  color: var(--vermelho);
+  border: 1px solid var(--vermelho);
+  padding: 8px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.8em;
+  font-weight: bold;
 }
 
 /* --- Modais e Popups --- */
@@ -263,26 +289,111 @@ header {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Botão de Fechar (X) */
+.backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 950;
+  transition: all 0.3s ease;
+}
+
+.backdrop.show {
+  display: block;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* --- Estilização dos Modais de Checkout (Novo) --- */
+#modalModoEntrega h3,
+#modalDados h3 {
+  color: var(--amarelo);
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#modalDados form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#modalDados input,
+#modalDados select {
+  background: #1e1e1e;
+  border: 1px solid #444;
+  padding: 12px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+#modalDados input:focus,
+#modalDados select:focus {
+  border-color: var(--amarelo);
+}
+
+.resumo-final {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 10px;
+  margin: 10px 0;
+  border: 1px dashed #444;
+}
+
+.resumo-final p {
+  display: flex;
+  justify-content: space-between;
+  margin: 5px 0;
+  font-size: 0.9em;
+}
+
+.total-big {
+  font-size: 1.2em !important;
+  font-weight: bold;
+  color: var(--amarelo);
+  border-top: 1px solid #444;
+  padding-top: 10px;
+  margin-top: 10px !important;
+}
+
+.btn-whatsapp {
+  background: var(--verde-zap);
+  color: #000;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.btn-whatsapp:active {
+  transform: scale(0.98);
+  filter: brightness(0.9);
+}
+
 .btn-close-modal {
   position: absolute;
-  top: 15px;
+  top: 10px;
   right: 15px;
   background: none;
   border: none;
   color: #888;
-  font-size: 24px;
+  font-size: 1.5rem;
   cursor: pointer;
-  line-height: 1;
-  padding: 5px;
-  transition: color 0.2s;
-  z-index: 10;
 }
 
-.btn-close-modal:hover {
-  color: var(--amarelo);
-}
-
+/* --- Estilos Internos do Modal (Personalização) --- */
 #popupQuestion h4 {
   color: var(--amarelo);
   border-bottom: 1px solid #444;
@@ -314,160 +425,60 @@ header {
   border: none;
   border-radius: 8px;
   font-weight: bold;
-  font-size: 1em;
-  margin-top: 15px;
   color: #000;
   cursor: pointer;
 }
 
-.backdrop {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 950;
-  transition: all 0.3s ease;
-}
-
-.backdrop.show {
-  display: block;
-  background: rgba(0, 0, 0, 0.6); /* Escurece o fundo */
-  backdrop-filter: blur(8px); /* Efeito de desfoque */
-  -webkit-backdrop-filter: blur(8px); /* Compatibilidade Safari */
-}
-/* --- Checkout e Formulários --- */
-input,
-select {
-  width: 100%;
-  padding: 14px;
-  margin: 5px 0 15px;
-  background: #111;
-  border: 1px solid #444;
-  color: #fff;
-  border-radius: 8px;
-  box-sizing: border-box;
-}
-
-.resumo-final {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 15px;
-  border-radius: 10px;
-  margin-top: 15px;
-  font-size: 0.9em;
-}
-
-.total-big {
-  font-size: 1.2em;
-  font-weight: bold;
-  color: var(--amarelo);
-  margin-top: 5px;
-}
-
-.btn-whatsapp {
-  width: 100%;
-  background: #fff;
-  color: black;
-  padding: 18px;
-  border: none;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 1.1em;
-  cursor: pointer;
-}
-
-.btn-whatsapp:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-.btn-back {
-  width: 100%;
-  background: var(--vermelho);
-  color: #fff;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.9em;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-.btn-back:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-/* --- Upsell (Sugestões no Carrinho) --- */
+/* --- Upsell --- */
 #upsellContainer {
-  margin-top: auto;
-  padding: 10px 15px;
-  background: rgba(0, 0, 0, 0.2);
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid #333;
-  border-bottom: 1px solid #333;
 }
 
 .upsell-header {
-  font-size: 0.9em;
+  font-size: 0.8em;
   color: var(--amarelo);
   font-weight: bold;
   margin-bottom: 8px;
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .upsell-scroll {
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding-bottom: 5px;
-  scrollbar-width: none; /* Firefox */
-}
-
-.upsell-scroll::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  padding-bottom: 10px;
+  scrollbar-width: none;
 }
 
 .upsell-card {
-  min-width: 110px;
-  max-width: 110px;
+  min-width: 100px;
   background: #2a2a2a;
   border-radius: 8px;
   padding: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   text-align: center;
   border: 1px solid #444;
-  flex-shrink: 0;
 }
 
 .upsell-card img {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
+  object-fit: cover;
   margin-bottom: 5px;
 }
 
 .upsell-card h4 {
-  font-size: 0.75em;
-  margin: 0 0 4px 0;
-  color: #fff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 0.7em;
+  margin: 4px 0;
+  height: 2.4em;
   overflow: hidden;
-  height: 2.4em; /* Limita altura do texto */
 }
 
 .upsell-card .price {
   font-size: 0.8em;
-  color: var(--verde-zap);
-  margin-bottom: 5px;
+  color: var(--amarelo);
   font-weight: bold;
 }
 
@@ -477,12 +488,22 @@ select {
   border: none;
   border-radius: 4px;
   padding: 4px;
-  font-size: 0.75em;
+  font-size: 0.7em;
   font-weight: bold;
   cursor: pointer;
-  color: #000;
 }
 
-.upsell-card button:active {
-  transform: scale(0.95);
+/* Espaçamento e Responsividade */
+main,
+.cardapio {
+  padding-bottom: 80px !important;
+}
+
+@media (min-width: 768px) {
+  #footerCart.open {
+    bottom: 20px;
+    right: 20px;
+    left: auto;
+    width: 350px;
+  }
 }

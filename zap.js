@@ -1,22 +1,19 @@
 "use strict";
 
-// Comentar a importação do Firebase se o arquivo não existir
-// import { enviarPedidoParaFirebase } from "./firebase.js";
-
 // --- Variáveis Globais ---
 let cardapioData = {};
 let cart = [];
 let currentCategory = "Promoções";
 let currentItem = null;
 let pendingMilkShake = null;
-let modeEntrega = "";
+let modoEntrega = "";
 let taxaEntregaAtual = 0;
-let autocomplete; // Variável para o Google Autocomplete
+let desconto = 0;
 
-// Configuração da Origem: Rua Lauro de Souza, 465
-const ORIGEM_COORD = { lat: -8.02465, lon: -34.87567 };
+// --- Configurações ---
+const whatsappNumber = "5581985299617";
+const CHAVE_PIX_TEXTO = "81985299617"; // Número para cópia
 
-// Customização de Combo
 let comboCustomization = {
   item: null,
   currentBurgerIndex: -1,
@@ -26,136 +23,143 @@ let comboCustomization = {
   paidExtras: [],
 };
 
-const whatsappNumber = "5581985299617";
 const sounds = {
   click: document.getElementById("soundClick"),
   add: document.getElementById("soundAdd"),
 };
 
-// --- Funções de Cálculo de Frete Dinâmico (Google Maps API) ---
-
-async function initAutocomplete() {
-  const inputEndereco = document.getElementById("inputEndereco");
-  if (!inputEndereco) return;
-
-  // Carrega a biblioteca de lugares de forma assíncrona (Padrão novo do Google)
-  const { Autocomplete } = await google.maps.importLibrary("places");
-
-  // Evita que o navegador tente sugerir endereços antigos do histórico
-  inputEndereco.setAttribute("autocomplete", "new-password");
-
-  const options = {
-    componentRestrictions: { country: "br" },
-    fields: ["geometry", "formatted_address"],
-    types: ["address"],
-  };
-
-  autocomplete = new Autocomplete(inputEndereco, options);
-
-  // O cálculo de taxa ocorre quando o usuário seleciona uma sugestão
-  autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace();
-
-    if (!place || !place.geometry) {
-      console.warn("Endereço digitado sem selecionar da lista.");
-      return;
-    }
-
-    // Dispara o cálculo após a seleção confirmada
-    atualizarTaxaEntrega();
-  });
-}
-
-async function calcularTaxaPorDistancia() {
-  if (!autocomplete) return 0;
-
-  const place = autocomplete.getPlace();
-
-  if (!place || !place.geometry) {
-    return 0;
-  }
-
-  return new Promise((resolve) => {
-    const service = new google.maps.DistanceMatrixService();
-
-    service.getDistanceMatrix(
-      {
-        origins: [new google.maps.LatLng(ORIGEM_COORD.lat, ORIGEM_COORD.lon)],
-        destinations: [place.geometry.location],
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      (response, status) => {
-        if (status === "OK") {
-          const element = response.rows[0].elements[0];
-
-          if (element.status !== "OK") {
-            console.error("Erro ao traçar rota.");
-            resolve(0);
-            return;
-          }
-
-          const distanciaMetros = element.distance.value;
-
-          // TABELA DE PREÇOS (Distância real por ruas)
-          if (distanciaMetros <= 200) return resolve(0.0);
-          if (distanciaMetros <= 500) return resolve(3.0);
-          if (distanciaMetros <= 1000) return resolve(4.0);
-          if (distanciaMetros <= 2000) return resolve(5.0);
-
-          if (distanciaMetros > 5000) {
-            alert("Desculpe, não entregamos para distâncias acima de 5km.");
-            resolve(0);
-          } else {
-            resolve(6.0);
-          }
-        } else {
-          console.error("Erro no Google Matrix:", status);
-          resolve(0);
-        }
-      }
-    );
-  });
-}
-
-function setPendingMilkShake(name, price) {
-  pendingMilkShake = { name, price };
-  openPopup("popupCalda");
-}
-
-function playSound(type) {
-  if (sounds[type]) sounds[type].play().catch(() => {});
-}
-
 // --- Inicialização ---
 document.addEventListener("DOMContentLoaded", () => {
   loadMenuData();
+
+  const inputCupom = document.getElementById("inputCupom");
+  if (inputCupom) {
+    inputCupom.addEventListener("input", aplicarCupom);
+  }
 });
 
 async function loadMenuData() {
   try {
     const response = await fetch("cardapio.json");
-    if (!response.ok) throw new Error("Erro HTTP");
     cardapioData = await response.json();
-    showCategory("Promoções", document.querySelector(".sessao-topo button"));
+    // Inicia na categoria Promoções
+    const firstBtn = document.querySelector(".sessao-topo button");
+    showCategory("Promoções", firstBtn);
   } catch (e) {
-    console.error("Erro ao carregar cardápio:", e);
-    document.getElementById("cardapio").innerHTML =
-      "<p>Erro ao carregar cardápio.</p>";
+    console.error(
+      "Erro ao carregar cardápio. Verifique se o arquivo cardapio.json existe."
+    );
   }
 }
 
-function salvarPedidoParaKDS(pedidoKDS) {
-  // Comentado pois o firebase.js pode não existir
-  /*
-  enviarPedidoParaFirebase(pedidoKDS)
+// --- Funções de Cupom e Resumo ---
+function aplicarCupom() {
+  const codigo = document.getElementById("inputCupom").value.toUpperCase();
+  const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+  desconto = 0;
+
+  if (codigo === "DESCONTO10") {
+    desconto = sub * 0.1;
+  }
+  atualizarResumo();
+}
+
+function atualizarResumo() {
+  const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+  const totalFinal = Math.max(0, sub + taxaEntregaAtual - desconto);
+
+  document.getElementById("resumoSubtotal").textContent = `R$ ${sub.toFixed(
+    2
+  )}`;
+
+  const resumoTaxa = document.getElementById("resumoTaxa");
+  const selectBairro = document.getElementById("selectBairro");
+  const bairro = selectBairro ? selectBairro.value : "";
+
+  if (modoEntrega === "entrega" && bairro === "Campo Grande") {
+    resumoTaxa.innerHTML = `<span style="color: #ff4444; font-weight: bold;">A definir (No WhatsApp)</span>`;
+  } else {
+    resumoTaxa.textContent = `R$ ${taxaEntregaAtual.toFixed(2)}`;
+  }
+
+  document.getElementById(
+    "resumoDesconto"
+  ).textContent = `R$ ${desconto.toFixed(2)}`;
+  document.getElementById("resumoTotal").textContent = `R$ ${totalFinal.toFixed(
+    2
+  )}`;
+}
+
+// --- Lógica de Pagamento e Pix ---
+function gerenciarExibicaoPix() {
+  const pag = document.getElementById("selectPagamento").value;
+  const areaPix = document.getElementById("areaPixCopiaCola");
+  if (areaPix) {
+    areaPix.style.display = pag === "Pix" ? "block" : "none";
+  }
+}
+
+function copiarChavePix() {
+  navigator.clipboard
+    .writeText(CHAVE_PIX_TEXTO)
     .then(() => {
-      console.log("Pedido enviado para o KDS (Firebase)");
+      alert("Chave PIX copiada: " + CHAVE_PIX_TEXTO);
     })
     .catch((err) => {
-      console.error("Erro ao enviar pedido:", err);
+      console.error("Erro ao copiar: ", err);
     });
-  */
-  console.log("Pedido KDS:", pedidoKDS);
+}
+
+function verificarTroco() {
+  const pag = document.getElementById("selectPagamento").value;
+  const areaTroco = document.getElementById("areaTroco");
+  if (areaTroco) {
+    areaTroco.style.display = pag === "Dinheiro" ? "block" : "none";
+  }
+}
+
+// --- Checkout e Entrega ---
+function selecionarModo(modo) {
+  modoEntrega = modo;
+  const areaEntrega = document.getElementById("areaEntrega");
+  const secaoPagamento = document.getElementById("secaoPagamento");
+
+  if (modo === "retirada") {
+    areaEntrega.style.display = "none";
+    taxaEntregaAtual = 0;
+    secaoPagamento.style.display = "block";
+  } else {
+    areaEntrega.style.display = "block";
+  }
+  closeModal("modalModoEntrega");
+  openPopup("modalDados");
+  atualizarResumo();
+}
+
+function atualizarTaxaEntrega() {
+  const selectBairro = document.getElementById("selectBairro");
+  const secaoPagamento = document.getElementById("secaoPagamento");
+  const areaPixCopiaCola = document.getElementById("areaPixCopiaCola");
+  const bairro = selectBairro.value;
+
+  if (modoEntrega === "retirada") {
+    taxaEntregaAtual = 0;
+    secaoPagamento.style.display = "block";
+  } else {
+    if (bairro === "Campo Grande") {
+      taxaEntregaAtual = 0;
+      secaoPagamento.style.display = "none";
+      alert(
+        "Para Campo Grande, a taxa de entrega é sob consulta (calculada por distância). O pagamento será combinado no WhatsApp."
+      );
+    } else {
+      const option = selectBairro.selectedOptions[0];
+      taxaEntregaAtual = parseFloat(option.getAttribute("data-taxa") || 0);
+      secaoPagamento.style.display = "block";
+    }
+  }
+  if (areaPixCopiaCola) areaPixCopiaCola.style.display = "none";
+  atualizarResumo();
 }
 
 // --- Exibição do Cardápio ---
@@ -174,59 +178,55 @@ function showCategory(cat, btn) {
   }
   const container = document.getElementById("cardapio");
   if (!container) return;
-
   container.innerHTML = "";
   const items = cardapioData[cat] || [];
 
   items.forEach((item, index) => {
     const card = document.createElement("div");
     card.className = "card";
-
     if (item.img) {
       const img = document.createElement("img");
       img.src = item.img;
       img.onclick = () => openImagePopup(item.img);
       card.appendChild(img);
     }
-
     card.innerHTML += `<h3>${item.nome}</h3>`;
     if (item.descricao)
       card.innerHTML += `<div class="descricao">${item.descricao}</div>`;
 
     const optionsRow = document.createElement("div");
     optionsRow.className = "options-row";
-
     const opcoes = item.opcoes || [""];
     const precos = Array.isArray(item.precoBase)
       ? item.precoBase
       : [item.precoBase];
 
     opcoes.forEach((op, opIndex) => {
-      let price = precos[opIndex] || precos[0];
+      const price = precos[opIndex] || precos[0];
       const btnOp = document.createElement("button");
-      const textoBotao = `${op} - R$ ${parseFloat(price).toFixed(2)}`;
+      btnOp.innerHTML = `<span>${op}</span> <span>R$ ${parseFloat(
+        price
+      ).toFixed(2)}</span>`;
 
-      const nomeOp = op.toLowerCase();
-      const temIngredientes =
+      const categoriasComModal = [
+        "Artesanais",
+        "Promoções",
+        "Batata Frita",
+        "Costela Bovina",
+      ];
+      const temPersonalizacao = !!(
         item.ingredientes ||
         item.ingredientesPadrao ||
-        (nomeOp.includes("simples") && item.simplesIngredients) ||
-        (nomeOp.includes("duplo") && item.duploIngredients) ||
-        (nomeOp.includes("triplo") && item.triploIngredients);
-      const temPersonalizacao = !!(
-        item.combo ||
-        item.adicionais ||
         item.paidExtras ||
-        temIngredientes
+        item.adicionais ||
+        item.combo
       );
 
-      if (temPersonalizacao && cat !== "Milk Shakes") {
+      if (categoriasComModal.includes(cat) || temPersonalizacao) {
         btnOp.className = "btn-personalizar";
-        btnOp.textContent = textoBotao;
         btnOp.onclick = () => openPopupCustom(cat, index, opIndex);
       } else {
         btnOp.className = "btn-add";
-        btnOp.textContent = textoBotao;
         btnOp.onclick = () => {
           if (cat === "Milk Shakes") {
             pendingMilkShake = {
@@ -246,230 +246,11 @@ function showCategory(cat, btn) {
   });
 }
 
-// --- Carrinho ---
-function addToCart(name, price, custom = {}) {
-  playSound("add");
-  const customKey = JSON.stringify(custom);
-  const existingIndex = cart.findIndex(
-    (c) => c.item === name.trim() && JSON.stringify(c.custom) === customKey
-  );
-  if (existingIndex !== -1) {
-    cart[existingIndex].quantity += 1;
-  } else {
-    cart.push({ item: name.trim(), price: price, quantity: 1, custom: custom });
-  }
-  updateCartDisplay();
-}
-
-function updateCartDisplay() {
-  const countEl = document.getElementById("cartCount");
-  const itemsEl = document.getElementById("cartItems");
-  const totalEl = document.getElementById("cartTotalDisplay");
-
-  const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
-  const count = cart.reduce((acc, i) => acc + i.quantity, 0);
-
-  if (countEl) countEl.textContent = count;
-  if (totalEl) totalEl.textContent = `R$ ${total.toFixed(2)}`;
-
-  if (itemsEl) {
-    itemsEl.innerHTML = "";
-    cart.forEach((item, idx) => {
-      const div = document.createElement("div");
-      div.className = "cart-item";
-      let details = generateCustomDetails(item.custom);
-      div.innerHTML = `
-        <div>
-          <strong>${item.item}</strong><br/>
-          ${details ? `<small style="color: #999">${details}</small><br/>` : ""}
-          <small>R$ ${item.price.toFixed(2)}</small>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button onclick="changeQuantity(${idx}, -1)" style="padding: 4px 8px; background: #444; border: none; color: white; border-radius: 4px; cursor: pointer;">-</button>
-          <span style="min-width: 20px; text-align: center;">${
-            item.quantity
-          }</span>
-          <button onclick="changeQuantity(${idx}, 1)" style="padding: 4px 8px; background: #444; border: none; color: white; border-radius: 4px; cursor: pointer;">+</button>
-          <button onclick="removeItem(${idx})" style="padding: 4px 8px; background: var(--vermelho); border: none; color: white; border-radius: 4px; cursor: pointer;">🗑️</button>
-        </div>
-      `;
-      itemsEl.appendChild(div);
-    });
-  }
-
-  updateUpsell();
-}
-
-function generateCustomDetails(custom) {
-  if (!custom || Object.keys(custom).length === 0) return "";
-
-  let parts = [];
-
-  if (custom.removed && custom.removed.length > 0) {
-    parts.push(`Sem: ${custom.removed.join(", ")}`);
-  }
-
-  if (custom.extras && custom.extras.length > 0) {
-    const extraNames = custom.extras.map((e) => e.nome || e);
-    parts.push(`Extras: ${extraNames.join(", ")}`);
-  }
-
-  if (custom.burgers && custom.burgers.length > 0) {
-    custom.burgers.forEach((b, i) => {
-      let burgerParts = [];
-      if (b.removed && b.removed.length > 0) {
-        burgerParts.push(`Sem ${b.removed.join(", ")}`);
-      }
-      if (b.extras && b.extras.length > 0) {
-        const extraNames = b.extras.map((e) => e.nome || e);
-        burgerParts.push(`+${extraNames.join(", ")}`);
-      }
-      if (burgerParts.length > 0) {
-        parts.push(`${b.burgerName}: ${burgerParts.join(" | ")}`);
-      }
-    });
-  }
-
-  return parts.join(" • ");
-}
-
-function toggleCart() {
-  playSound("click");
-  document.getElementById("footerCart").classList.toggle("open");
-}
-
-function removeItem(idx) {
-  cart.splice(idx, 1);
-  updateCartDisplay();
-}
-
-function changeQuantity(idx, delta) {
-  if (cart[idx]) {
-    cart[idx].quantity += delta;
-    if (cart[idx].quantity <= 0) {
-      cart.splice(idx, 1);
-    }
-    updateCartDisplay();
-  }
-}
-
-function clearCart() {
-  if (confirm("Deseja limpar todo o carrinho?")) {
-    cart = [];
-    updateCartDisplay();
-  }
-}
-
-// --- Upsell ---
-function updateUpsell() {
-  const upsellContainer = document.getElementById("upsellContainer");
-  const upsellList = document.getElementById("upsellList");
-
-  if (!upsellContainer || !upsellList) return;
-
-  const categoriesInCart = new Set(
-    cart.map((c) => {
-      if (c.item.toLowerCase().includes("combo")) return "Combos";
-      if (c.item.toLowerCase().includes("batata")) return "Batata Frita";
-      if (c.item.toLowerCase().includes("bebida")) return "Bebidas";
-      if (c.item.toLowerCase().includes("shake")) return "Milk Shakes";
-      return "Artesanais";
-    })
-  );
-
-  const hasBurger =
-    categoriesInCart.has("Artesanais") || categoriesInCart.has("Combos");
-  const hasFries = categoriesInCart.has("Batata Frita");
-  const hasDrink = categoriesInCart.has("Bebidas");
-
-  let suggestions = [];
-
-  if (hasBurger && !hasFries && cardapioData["Batata Frita"]) {
-    suggestions.push(...cardapioData["Batata Frita"].slice(0, 2));
-  }
-
-  if (hasBurger && !hasDrink && cardapioData["Bebidas"]) {
-    suggestions.push(...cardapioData["Bebidas"].slice(0, 2));
-  }
-
-  if (!hasBurger && cardapioData["Promoções"]) {
-    suggestions.push(...cardapioData["Promoções"].slice(0, 2));
-  }
-
-  if (suggestions.length === 0) {
-    upsellContainer.style.display = "none";
-    return;
-  }
-
-  upsellContainer.style.display = "block";
-  upsellList.innerHTML = "";
-
-  suggestions.forEach((item) => {
-    const price = Array.isArray(item.precoBase)
-      ? item.precoBase[0]
-      : item.precoBase;
-    const card = document.createElement("div");
-    card.className = "upsell-card";
-    card.innerHTML = `
-      <img src="${item.img || "img/default.png"}" alt="${item.nome}" />
-      <h4>${item.nome}</h4>
-      <div class="price">R$ ${parseFloat(price).toFixed(2)}</div>
-      <button onclick="addToCart('${item.nome}', ${parseFloat(
-      price
-    )})">+ Add</button>
-    `;
-    upsellList.appendChild(card);
-  });
-}
-
-// --- Milk Shake Calda ---
-function selectCalda(calda) {
-  if (pendingMilkShake) {
-    addToCart(
-      pendingMilkShake.name + " - Calda de " + calda,
-      pendingMilkShake.price
-    );
-    pendingMilkShake = null;
-    closeCaldaPopup();
-  }
-}
-
-function closeCaldaPopup() {
-  closeModal("popupCalda");
-}
-
-// --- Modais ---
-function openPopup(id) {
-  const backdrop = document.getElementById("backdrop");
-  const popup = document.getElementById(id);
-  if (backdrop) backdrop.classList.add("show");
-  if (popup) {
-    popup.classList.add("show");
-    popup.scrollTop = 0;
-  }
-}
-
-function closeModal(id) {
-  const backdrop = document.getElementById("backdrop");
-  const popup = document.getElementById(id);
-  if (backdrop) backdrop.classList.remove("show");
-  if (popup) popup.classList.remove("show");
-}
-
-function openImagePopup(imgSrc) {
-  const img = document.getElementById("enlargedImage");
-  if (img) img.src = imgSrc;
-  openPopup("popupImage");
-}
-
-function closeImagePopup() {
-  closeModal("popupImage");
-}
-
-// --- Customização Simples ---
+// --- Customização ---
 function openPopupCustom(cat, itemIdx, opIdx) {
   currentItem = { cat, itemIdx, opIdx };
   const item = cardapioData[cat][itemIdx];
+  const opNome = (item.opcoes && item.opcoes[opIdx]) || "";
 
   if (item.combo) {
     startComboCustomization(item, opIdx);
@@ -477,102 +258,75 @@ function openPopupCustom(cat, itemIdx, opIdx) {
   }
 
   const container = document.getElementById("popupQuestion");
-  const popup = document.getElementById("popupCustom");
-
   document.getElementById(
     "popupCustomTitle"
-  ).textContent = `Personalize: ${item.nome}`;
+  ).textContent = `Personalizar: ${item.nome} ${opNome}`;
   container.innerHTML = "";
 
-  let ingredientes = [];
-  const nomeOp = (item.opcoes && item.opcoes[opIdx]) || "";
+  let ings =
+    (item.ingredientesPorOpcao && item.ingredientesPorOpcao[opNome]) ||
+    item.ingredientes ||
+    item.ingredientesPadrao ||
+    [];
 
-  if (nomeOp.toLowerCase().includes("simples") && item.simplesIngredients) {
-    ingredientes = item.simplesIngredients;
-  } else if (nomeOp.toLowerCase().includes("duplo") && item.duploIngredients) {
-    ingredientes = item.duploIngredients;
-  } else if (
-    nomeOp.toLowerCase().includes("triplo") &&
-    item.triploIngredients
-  ) {
-    ingredientes = item.triploIngredients;
-  } else {
-    ingredientes = item.ingredientes || item.ingredientesPadrao || [];
-  }
-
-  if (ingredientes.length > 0) {
-    container.innerHTML += "<h4>Remover ingredientes:</h4>";
-    ingredientes.forEach((ing) => {
-      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}" /><span>Sem ${ing}</span></label>`;
+  if (ings.length > 0) {
+    container.innerHTML += "<h4>Remover:</h4>";
+    ings.forEach((ing) => {
+      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}"><span>Sem ${ing}</span></label>`;
     });
   }
 
-  const adicionais = item.adicionais || [];
-  if (adicionais.length > 0) {
-    container.innerHTML += "<h4>Adicionais grátis:</h4>";
-    adicionais.forEach((ad) => {
-      container.innerHTML += `<label><input type="checkbox" data-type="adicional" value="${ad}" /><span>${ad}</span></label>`;
-    });
-  }
-
-  const paidExtras = item.paidExtras || [];
-  if (paidExtras.length > 0) {
-    container.innerHTML += "<h4>Adicionais pagos:</h4>";
-    paidExtras.forEach((ext) => {
+  const extras = item.paidExtras || item.adicionais || [];
+  if (extras.length > 0) {
+    container.innerHTML += "<h4>Adicionais:</h4>";
+    extras.forEach((ext) => {
       container.innerHTML += `<label><input type="checkbox" data-type="extra" data-price="${
         ext.preco
-      }" value="${ext.nome}" /><span>${ext.nome} (+R$ ${ext.preco.toFixed(
+      }" value="${ext.nome}"><span>${ext.nome} (+R$ ${ext.preco.toFixed(
         2
       )})</span></label>`;
     });
   }
 
+  const btnConfirm = document.querySelector("#popupCustom .btn-primary");
+  btnConfirm.onclick = confirmSimpleCustom;
   openPopup("popupCustom");
-  popup.scrollTop = 0;
 }
 
 function confirmSimpleCustom() {
-  const { cat, itemIdx, opIdx } = currentItem;
-  const item = cardapioData[cat][itemIdx];
-  const container = document.getElementById("popupQuestion");
+  const item = cardapioData[currentItem.cat][currentItem.itemIdx];
+  const opNome = item.opcoes[currentItem.opIdx];
+  const precoBase = Array.isArray(item.precoBase)
+    ? item.precoBase[currentItem.opIdx]
+    : item.precoBase;
 
+  const container = document.getElementById("popupQuestion");
   const removed = Array.from(
     container.querySelectorAll('input[data-type="remove"]:checked')
   ).map((i) => i.value);
-
-  const adicionais = Array.from(
-    container.querySelectorAll('input[data-type="adicional"]:checked')
-  ).map((i) => i.value);
-
   const extras = Array.from(
     container.querySelectorAll('input[data-type="extra"]:checked')
-  ).map((i) => ({ nome: i.value, preco: parseFloat(i.dataset.price) }));
+  ).map((i) => ({
+    nome: i.value,
+    preco: parseFloat(i.dataset.price),
+  }));
 
-  const nomeOpcao = item.opcoes ? item.opcoes[opIdx] : "";
-  const precos = Array.isArray(item.precoBase)
-    ? item.precoBase
-    : [item.precoBase];
-  const price = precos[opIdx] || precos[0];
-
-  const extrasTotal = extras.reduce((sum, e) => sum + e.preco, 0);
-
-  addToCart(item.nome + " " + nomeOpcao, parseFloat(price) + extrasTotal, {
+  const extraTotal = extras.reduce((acc, e) => acc + e.preco, 0);
+  addToCart(`${item.nome} ${opNome}`, precoBase + extraTotal, {
     removed,
     extras,
   });
   closeModal("popupCustom");
 }
 
+// --- Combo Logic ---
 function startComboCustomization(item, opIdx) {
-  const precos = Array.isArray(item.precoBase)
-    ? item.precoBase
-    : [item.precoBase];
   comboCustomization = {
-    item,
-    basePrice: parseFloat(precos[opIdx] || precos[0]),
+    item: item,
     currentBurgerIndex: 0,
     totalCustomizations: [],
-    optionName: item.opcoes ? item.opcoes[opIdx] : "",
+    basePrice: item.precoBase[opIdx],
+    optionName: item.opcoes[opIdx],
     paidExtras: item.paidExtras || [],
   };
   renderComboStep();
@@ -582,25 +336,18 @@ function renderComboStep() {
   const { item, currentBurgerIndex, paidExtras } = comboCustomization;
   const burgerName = item.burgers[currentBurgerIndex];
   const container = document.getElementById("popupQuestion");
-  const popup = document.getElementById("popupCustom");
 
   document.getElementById("popupCustomTitle").textContent = `Lanche ${
     currentBurgerIndex + 1
   }: ${burgerName}`;
-  container.innerHTML = "<h4>Personalize este lanche:</h4>";
+  container.innerHTML = "<h4>Remover:</h4>";
 
-  let ings = [];
-  if (burgerName.toLowerCase().includes("simples")) {
-    ings = item.simplesIngredients || [];
-  } else if (burgerName.toLowerCase().includes("duplo")) {
-    ings = item.duploIngredients || [];
-  }
-  if (ings.length === 0) {
-    ings = ["Cebola caramelizada", "Molho artesanal", "Cheddar fatiado"];
-  }
+  let ings = burgerName.toLowerCase().includes("duplo")
+    ? item.duploIngredients || []
+    : item.simplesIngredients || [];
 
   ings.forEach((ing) => {
-    container.innerHTML += `<label><input type="checkbox" data-type="remove-combo" value="${ing}" /><span>Sem ${ing}</span></label>`;
+    container.innerHTML += `<label><input type="checkbox" data-type="remove-combo" value="${ing}"><span>Sem ${ing}</span></label>`;
   });
 
   if (paidExtras.length > 0) {
@@ -608,7 +355,7 @@ function renderComboStep() {
     paidExtras.forEach((ext) => {
       container.innerHTML += `<label><input type="checkbox" data-type="extra-combo" data-price="${
         ext.preco
-      }" value="${ext.nome}" /><span>${ext.nome} (+R$ ${ext.preco.toFixed(
+      }" value="${ext.nome}"><span>${ext.nome} (+R$ ${ext.preco.toFixed(
         2
       )})</span></label>`;
     });
@@ -620,9 +367,7 @@ function renderComboStep() {
     currentBurgerIndex < item.burgers.length - 1
       ? "Próximo Lanche"
       : "Adicionar ao Carrinho";
-
   openPopup("popupCustom");
-  popup.scrollTop = 0;
 }
 
 function nextComboStep() {
@@ -630,10 +375,12 @@ function nextComboStep() {
   const removed = Array.from(
     container.querySelectorAll('input[data-type="remove-combo"]:checked')
   ).map((i) => i.value);
-
   const extras = Array.from(
     container.querySelectorAll('input[data-type="extra-combo"]:checked')
-  ).map((i) => ({ nome: i.value, preco: parseFloat(i.dataset.price) }));
+  ).map((i) => ({
+    nome: i.value,
+    preco: parseFloat(i.dataset.price),
+  }));
 
   comboCustomization.totalCustomizations.push({
     burgerName:
@@ -650,15 +397,12 @@ function nextComboStep() {
   ) {
     renderComboStep();
   } else {
-    let extrasTotal = 0;
-    comboCustomization.totalCustomizations.forEach((b) => {
-      if (b.extras) {
-        extrasTotal += b.extras.reduce((sum, e) => sum + e.preco, 0);
-      }
-    });
-
+    let extrasTotal = comboCustomization.totalCustomizations.reduce(
+      (acc, b) => acc + (b.extras?.reduce((s, e) => s + e.preco, 0) || 0),
+      0
+    );
     addToCart(
-      comboCustomization.item.nome + " " + comboCustomization.optionName,
+      `${comboCustomization.item.nome}`,
       comboCustomization.basePrice + extrasTotal,
       { burgers: comboCustomization.totalCustomizations }
     );
@@ -666,152 +410,180 @@ function nextComboStep() {
   }
 }
 
-// --- Checkout ---
-function iniciarCheckout() {
-  if (!cart.length) return;
-  document.getElementById("footerCart").classList.remove("open");
-  openPopup("modalModoEntrega");
-}
-
-function selecionarModo(modo) {
-  modeEntrega = modo;
-  closeModal("modalModoEntrega");
-
-  if (modo === "entrega") {
-    // Salva o carrinho atual para ser lido na página de checkout
-    localStorage.setItem("ribbs_cart", JSON.stringify(cart));
-    window.location.href = "checkout.html";
-  } else {
-    // Mantém o fluxo antigo para retirada local
-    document.getElementById("areaEntrega").style.display = "none";
-    document.getElementById("linhaTaxa").style.display = "none";
-    taxaEntregaAtual = 0;
-    atualizarTaxaEntrega();
-    openPopup("modalDados");
-  }
-}
-
-async function atualizarTaxaEntrega() {
-  let taxa = 0;
-  const selBairro = document.getElementById("selectBairro");
-  const bairroSelecionado = selBairro ? selBairro.value : "";
-  const resumoTaxaDisplay = document.getElementById("resumoTaxa");
-
-  if (modeEntrega === "entrega") {
-    const place = autocomplete ? autocomplete.getPlace() : null;
-
-    if (bairroSelecionado === "Campo Grande" && place && place.geometry) {
-      if (resumoTaxaDisplay) resumoTaxaDisplay.textContent = "Calculando...";
-      taxa = await calcularTaxaPorDistancia();
-    } else if (selBairro && selBairro.selectedIndex > 0) {
-      taxa = parseFloat(
-        selBairro.options[selBairro.selectedIndex]?.dataset.taxa || 0
-      );
-    }
-  }
-
-  taxaEntregaAtual = taxa;
-  const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
-
-  if (document.getElementById("resumoSubtotal"))
-    document.getElementById("resumoSubtotal").textContent = `R$ ${sub.toFixed(
-      2
-    )}`;
-
-  if (resumoTaxaDisplay)
-    resumoTaxaDisplay.textContent = `R$ ${taxa.toFixed(2)}`;
-
-  if (document.getElementById("resumoTotal"))
-    document.getElementById("resumoTotal").textContent = `R$ ${(
-      sub + taxa
-    ).toFixed(2)}`;
-}
-
-function verificarTroco() {
-  const areaTroco = document.getElementById("areaTroco");
-  if (areaTroco) {
-    areaTroco.style.display =
-      document.getElementById("selectPagamento").value === "Dinheiro"
-        ? "block"
-        : "none";
-  }
-}
-
-function enviarZap(e) {
-  e.preventDefault();
-  const nome = document.getElementById("inputNome").value;
-  const pag = document.getElementById("selectPagamento").value;
-  const totalTexto = document.getElementById("resumoTotal").textContent;
-  const totalNumerico = parseFloat(
-    totalTexto.replace("R$", "").replace(",", ".").trim()
+// --- Carrinho ---
+function addToCart(name, price, custom = {}) {
+  if (sounds.add) sounds.add.play().catch(() => {});
+  const customKey = JSON.stringify(custom);
+  const existing = cart.findIndex(
+    (c) => c.item === name.trim() && JSON.stringify(c.custom) === customKey
   );
 
-  salvarPedidoParaKDS({
-    id: Date.now().toString(),
-    nomeCliente: nome,
-    itens: cart.map((c) => ({
-      item: c.item,
-      quantity: c.quantity,
-      custom: c.custom,
-    })),
-    pagamentos: [{ method: pag, value: totalNumerico }],
-    total: totalNumerico,
-    tipoConsumo: modeEntrega === "entrega" ? "Para Viagem" : "Consumo Local",
-    status: "Pendente",
-    dataHora: new Date().toLocaleTimeString(),
-    observacao: "",
-  });
+  if (existing !== -1) cart[existing].quantity += 1;
+  else cart.push({ item: name.trim(), price, quantity: 1, custom });
 
-  let msg = `*PEDIDO RIBBSZN - ${modeEntrega.toUpperCase()}*%0a*Cliente:* ${nome}%0a`;
-  if (modeEntrega === "entrega") {
-    const endereco = document.getElementById("inputEndereco").value;
-    const bairro = document.getElementById("selectBairro").value;
+  updateCartDisplay();
+}
+
+function updateCartDisplay() {
+  const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+  const count = cart.reduce((acc, i) => acc + i.quantity, 0);
+
+  document.getElementById("cartCount").textContent = count;
+  document.getElementById("cartTotalDisplay").textContent = `R$ ${sub.toFixed(
+    2
+  )}`;
+
+  const itemsEl = document.getElementById("cartItems");
+  if (itemsEl) {
+    itemsEl.innerHTML = "";
+    cart.forEach((item, idx) => {
+      const div = document.createElement("div");
+      div.className = "cart-item";
+      div.innerHTML = `
+        <div style="flex: 1;">
+          <strong>${item.item}</strong><br>
+          <small>${generateDetails(item.custom)}</small>
+          <div style="color: var(--amarelo); font-weight: bold; margin-top: 5px;">R$ ${(
+            item.price * item.quantity
+          ).toFixed(2)}</div>
+        </div>
+        <div class="cart-controls">
+          <button onclick="changeQuantity(${idx},-1)">-</button>
+          <span>${item.quantity}</span>
+          <button onclick="changeQuantity(${idx},1)">+</button>
+        </div>`;
+      itemsEl.appendChild(div);
+    });
+  }
+}
+
+function generateDetails(c) {
+  if (!c) return "";
+  let p = [];
+  if (c.removed?.length) p.push(`Sem: ${c.removed.join(", ")}`);
+  if (c.extras?.length)
+    p.push(`Adicional: ${c.extras.map((e) => e.nome).join(", ")}`);
+  if (c.burgers) {
+    c.burgers.forEach((b) => {
+      let bDetails = `${b.burgerName}: `;
+      if (b.extras.length)
+        bDetails += `+${b.extras.map((e) => e.nome).join(", ")} `;
+      if (b.removed.length) bDetails += `Sem ${b.removed.join(", ")}`;
+      p.push(bDetails);
+    });
+  }
+  return p.join(" | ");
+}
+
+function changeQuantity(idx, d) {
+  cart[idx].quantity += d;
+  if (cart[idx].quantity <= 0) cart.splice(idx, 1);
+  updateCartDisplay();
+}
+
+// --- Finalização e WhatsApp ---
+function enviarZap(e) {
+  e.preventDefault();
+
+  const nome = document.getElementById("inputNome").value;
+  const pag = document.getElementById("selectPagamento").value;
+  const endereco = document.getElementById("inputEndereco").value;
+  const bairro = document.getElementById("selectBairro").value;
+  const cupom = document.getElementById("inputCupom").value;
+
+  // Validação de pagamento obrigatório (exceto Campo Grande em delivery)
+  if (modoEntrega === "entrega" && bairro !== "Campo Grande" && !pag) {
+    alert("Por favor, selecione a forma de pagamento.");
+    return;
+  }
+
+  let msg = `*PEDIDO RIBBSZN*%0a*Cliente:* ${nome}%0a*Modo:* ${
+    modoEntrega === "entrega" ? "Delivery" : "Retirada"
+  }%0a`;
+
+  if (modoEntrega === "entrega") {
     msg += `*Endereço:* ${endereco}%0a*Bairro:* ${bairro}%0a`;
+    if (bairro === "Campo Grande") {
+      msg += `%0a⚠️ *(DISTÂNCIA)* ⚠️%0a`;
+    }
   }
 
   msg += `%0a*ITENS:*%0a`;
   cart.forEach((c) => {
     msg += `• ${c.quantity}x ${c.item}%0a`;
-    let det = generateCustomDetails(c.custom);
-    if (det) msg += `   _${det}_%0a`;
+    let details = generateDetails(c.custom);
+    if (details) msg += `  _${details}_%0a`;
   });
 
-  msg += `%0a*Pagamento:* ${pag}%0a*TOTAL:* ${totalTexto}`;
+  const totalStr = document.getElementById("resumoTotal").textContent;
+  const formaPagamentoTexto =
+    modoEntrega === "entrega" && bairro === "Campo Grande"
+      ? "A combinar no WhatsApp"
+      : pag;
+
+  msg += `%0a*Pagamento:* ${formaPagamentoTexto}%0a`;
+  if (cupom) msg += `*Cupom:* ${cupom}%0a`;
+
+  if (modoEntrega === "entrega" && bairro === "Campo Grande") {
+    msg += `*Taxa:* A DEFINIR%0a*TOTAL (Pendente Taxa):* ${totalStr}`;
+  } else {
+    msg += `*Taxa:* R$ ${taxaEntregaAtual.toFixed(2)}%0a*TOTAL:* ${totalStr}`;
+  }
 
   window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, "_blank");
-
-  cart = [];
-  updateCartDisplay();
-  closeModal("modalDados");
-  document.getElementById("footerCart").classList.remove("open");
-  e.target.reset();
-  showCategory("Promoções", document.querySelector(".sessao-topo button"));
+  finalizarPedido();
 }
 
-// --- Exposição de funções para o escopo Global ---
+function finalizarPedido() {
+  localStorage.removeItem("ribbs_cart");
+  alert("Pedido enviado com sucesso!");
+  location.reload();
+}
+
+// --- Helpers de UI ---
+function openPopup(id) {
+  document.getElementById("backdrop").classList.add("show");
+  document.getElementById(id).classList.add("show");
+}
+
+function closeModal(id) {
+  document.getElementById("backdrop").classList.remove("show");
+  const el = document.getElementById(id);
+  if (el) el.classList.remove("show");
+}
+
+// --- Exposição para o HTML (window) ---
 window.showCategory = showCategory;
-window.toggleCart = toggleCart;
-window.removeItem = removeItem;
+window.toggleCart = () =>
+  document.getElementById("footerCart").classList.toggle("open");
 window.changeQuantity = changeQuantity;
-window.clearCart = clearCart;
-window.iniciarCheckout = iniciarCheckout;
-window.selectCalda = selectCalda;
-window.closeCaldaPopup = closeCaldaPopup;
+window.iniciarCheckout = () => {
+  if (cart.length) {
+    document.getElementById("footerCart").classList.remove("open");
+    openPopup("modalModoEntrega");
+  }
+};
 window.selecionarModo = selecionarModo;
 window.atualizarTaxaEntrega = atualizarTaxaEntrega;
+window.gerenciarExibicaoPix = gerenciarExibicaoPix;
+window.copiarChavePix = copiarChavePix;
 window.verificarTroco = verificarTroco;
 window.enviarZap = enviarZap;
-window.closeImagePopup = closeImagePopup;
-window.addToCart = addToCart;
-window.openPopup = openPopup;
 window.closeModal = closeModal;
 window.openPopupCustom = openPopupCustom;
-window.confirmSimpleCustom = confirmSimpleCustom;
-window.setPendingMilkShake = setPendingMilkShake;
-window.startComboCustomization = startComboCustomization;
-window.renderComboStep = renderComboStep;
-window.nextComboStep = nextComboStep;
-window.initAutocomplete = initAutocomplete;
-window.openImagePopup = openImagePopup;
-
-export { initAutocomplete };
+window.selectCalda = (c) => {
+  addToCart(`${pendingMilkShake.name} (Calda ${c})`, pendingMilkShake.price);
+  closeModal("popupCalda");
+};
+window.openImagePopup = (src) => {
+  document.getElementById("enlargedImage").src = src;
+  openPopup("popupImage");
+};
+window.closeImagePopup = () => closeModal("popupImage");
+window.closeCaldaPopup = () => closeModal("popupCalda");
+window.clearCart = () => {
+  if (confirm("Deseja limpar o carrinho?")) {
+    cart = [];
+    updateCartDisplay();
+  }
+};

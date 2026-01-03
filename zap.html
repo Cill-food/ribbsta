@@ -157,11 +157,10 @@
             placeholder="Endereço completo (Rua, nº, Bairro)"
             required
           />
-
           <select id="selectBairro" onchange="atualizarTaxaEntrega()">
             <option value="" disabled selected>Confirme o Bairro</option>
             <option value="Campo Grande" data-taxa="0">
-              Campo Grande (Cálculo por distância)
+              Campo Grande (Taxa sob consulta)
             </option>
             <option value="Aflitos" data-taxa="6">Aflitos (R$ 6,00)</option>
             <option value="Arruda" data-taxa="5">Arruda (R$ 5,00)</option>
@@ -182,24 +181,94 @@
           </select>
         </div>
 
-        <select id="selectPagamento" onchange="verificarTroco()" required>
-          <option value="" disabled selected>Forma de Pagamento</option>
-          <option value="PIX">PIX</option>
-          <option value="Cartão">Cartão</option>
-          <option value="Dinheiro">Dinheiro</option>
-        </select>
+        <input
+          type="text"
+          id="inputCupom"
+          placeholder="Cupom (Opcional)"
+          style="margin-top: 10px"
+        />
 
-        <div id="areaTroco" style="display: none">
-          <input
-            type="number"
-            id="inputTroco"
-            placeholder="Quanto você pagará ao todo?"
-          />
+        <div
+          id="secaoPagamento"
+          style="
+            margin-top: 15px;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+          "
+        >
+          <label style="color: #fff; font-size: 0.9em"
+            >Forma de Pagamento:</label
+          >
+          <select
+            id="selectPagamento"
+            onchange="gerenciarExibicaoPix(); verificarTroco();"
+            required
+            style="margin-top: 5px"
+          >
+            <option value="" disabled selected>
+              Selecione como deseja pagar
+            </option>
+            <option value="Pix">Pix</option>
+            <option value="Cartão">Cartão (Maquininha)</option>
+            <option value="Dinheiro">Dinheiro</option>
+          </select>
+
+          <div
+            id="areaPixCopiaCola"
+            style="
+              display: none;
+              text-align: center;
+              margin-top: 15px;
+              background: #2a2a2a;
+              padding: 15px;
+              border-radius: 8px;
+            "
+          >
+            <p
+              style="
+                font-size: 0.9em;
+                color: var(--amarelo);
+                margin-bottom: 10px;
+              "
+            >
+              Chave PIX (Telefone):
+            </p>
+            <strong style="font-size: 1.2em; color: #fff">81985299617</strong>
+            <p style="font-size: 0.8em; color: #ccc; margin-top: 5px">
+              Hugo Daniel - Banco Inter
+            </p>
+
+            <button
+              type="button"
+              onclick="copiarChavePix()"
+              style="
+                background: var(--amarelo);
+                color: black;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 5px;
+                font-weight: bold;
+                margin-top: 10px;
+                cursor: pointer;
+              "
+            >
+              Copiar Chave Pix 📋
+            </button>
+          </div>
+
+          <div id="areaTroco" style="display: none; margin-top: 10px">
+            <input
+              type="number"
+              id="inputTroco"
+              placeholder="Troco para quanto?"
+            />
+          </div>
         </div>
 
         <div class="resumo-final">
           <p>Subtotal: <span id="resumoSubtotal">R$ 0,00</span></p>
           <p id="linhaTaxa">Taxa: <span id="resumoTaxa">R$ 0,00</span></p>
+          <p>Desconto: <span id="resumoDesconto">R$ 0,00</span></p>
           <p class="total-big">Total: <span id="resumoTotal">R$ 0,00</span></p>
         </div>
 
@@ -221,54 +290,6 @@
     <audio id="soundClick" src="beep.mp3"></audio>
     <audio id="soundAdd" src="beep.mp3"></audio>
 
-    <script>
-      ((g) => {
-        var h,
-          a,
-          k,
-          p = "The Google Maps JavaScript API",
-          c = "google",
-          l = "importLibrary",
-          q = "__ib__",
-          m = document,
-          b = window;
-        b = b[c] || (b[c] = {});
-        var d = b.maps || (b.maps = {}),
-          r = new Set(),
-          e = new URLSearchParams(),
-          u = () =>
-            h ||
-            (h = new Promise(async (f, n) => {
-              await (a = m.createElement("script"));
-              e.set("libraries", [...r] + "");
-              for (k in g)
-                e.set(
-                  k.replace(/[A-Z]/g, (t) => "_" + t[0].toLowerCase()),
-                  g[k]
-                );
-              e.set("callback", c + ".maps." + q);
-              a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
-              d[q] = f;
-              a.onerror = () => (h = n(Error(p + " could not load.")));
-              a.nonce = m.querySelector("script[nonce]")?.nonce || "";
-              m.head.append(a);
-            }));
-        d[l]
-          ? console.warn(p + " only loads once. Re-using existing library.")
-          : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)));
-      })({
-        key: "AIzaSyD2QL7hEmor0FQxBWS9p5wAk3XnczkIzXo",
-        v: "weekly",
-      });
-    </script>
-
-    <script type="module">
-      import { initAutocomplete } from "./zap.js";
-      // Chama a inicialização assim que as bibliotecas estiverem prontas
-      google.maps.importLibrary("places").then(() => {
-        initAutocomplete();
-      });
-    </script>
-    <script type="module" src="zap.js"></script>
+    <script src="zap.js"></script>
   </body>
 </html>
