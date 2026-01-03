@@ -13,7 +13,7 @@
     <div
       id="backdrop"
       class="backdrop"
-      onclick="closeModal('popupCustom'); closeCaldaPopup();"
+      onclick="closeModal('popupCustom'); closeCaldaPopup(); closeModal('modalModoEntrega'); closeModal('modalDados'); closeImagePopup();"
     ></div>
 
     <header>
@@ -151,11 +151,34 @@
         <input type="text" id="inputNome" placeholder="Seu Nome" required />
 
         <div id="areaEntrega" style="display: none">
-          <input type="text" id="inputRua" placeholder="Rua e Número" />
+          <input
+            type="text"
+            id="inputEndereco"
+            placeholder="Endereço completo (Rua, nº, Bairro)"
+            required
+          />
+
           <select id="selectBairro" onchange="atualizarTaxaEntrega()">
-            <option value="" disabled selected>Selecione o Bairro</option>
-            <option value="Bairro 1" data-taxa="5">Bairro 1 (R$ 5,00)</option>
-            <option value="Bairro 2" data-taxa="7">Bairro 2 (R$ 7,00)</option>
+            <option value="" disabled selected>Confirme o Bairro</option>
+            <option value="Campo Grande" data-taxa="0">
+              Campo Grande (Cálculo por distância)
+            </option>
+            <option value="Aflitos" data-taxa="6">Aflitos (R$ 6,00)</option>
+            <option value="Arruda" data-taxa="5">Arruda (R$ 5,00)</option>
+            <option value="Água Fria" data-taxa="7">Água Fria (R$ 7,00)</option>
+            <option value="Encruzilhada" data-taxa="5">
+              Encruzilhada (R$ 5,00)
+            </option>
+            <option value="Jardim Brasil" data-taxa="6">
+              Jardim Brasil (R$ 6,00)
+            </option>
+            <option value="Peixinhos" data-taxa="5">Peixinhos (R$ 5,00)</option>
+            <option value="Salgadinho" data-taxa="5">
+              Salgadinho (R$ 5,00)
+            </option>
+            <option value="Sítio Novo" data-taxa="3">
+              Sítio Novo (R$ 3,00)
+            </option>
           </select>
         </div>
 
@@ -198,6 +221,54 @@
     <audio id="soundClick" src="beep.mp3"></audio>
     <audio id="soundAdd" src="beep.mp3"></audio>
 
+    <script>
+      ((g) => {
+        var h,
+          a,
+          k,
+          p = "The Google Maps JavaScript API",
+          c = "google",
+          l = "importLibrary",
+          q = "__ib__",
+          m = document,
+          b = window;
+        b = b[c] || (b[c] = {});
+        var d = b.maps || (b.maps = {}),
+          r = new Set(),
+          e = new URLSearchParams(),
+          u = () =>
+            h ||
+            (h = new Promise(async (f, n) => {
+              await (a = m.createElement("script"));
+              e.set("libraries", [...r] + "");
+              for (k in g)
+                e.set(
+                  k.replace(/[A-Z]/g, (t) => "_" + t[0].toLowerCase()),
+                  g[k]
+                );
+              e.set("callback", c + ".maps." + q);
+              a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+              d[q] = f;
+              a.onerror = () => (h = n(Error(p + " could not load.")));
+              a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+              m.head.append(a);
+            }));
+        d[l]
+          ? console.warn(p + " only loads once. Re-using existing library.")
+          : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)));
+      })({
+        key: "AIzaSyD2QL7hEmor0FQxBWS9p5wAk3XnczkIzXo",
+        v: "weekly",
+      });
+    </script>
+
+    <script type="module">
+      import { initAutocomplete } from "./zap.js";
+      // Chama a inicialização assim que as bibliotecas estiverem prontas
+      google.maps.importLibrary("places").then(() => {
+        initAutocomplete();
+      });
+    </script>
     <script type="module" src="zap.js"></script>
   </body>
 </html>

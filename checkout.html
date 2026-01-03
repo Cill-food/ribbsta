@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RibbsZn - Checkout</title>
+    <link rel="stylesheet" href="zap.css" />
+    <style>
+      .checkout-container {
+        max-width: 500px;
+        margin: 20px auto;
+        padding: 20px;
+      }
+      .resumo-box {
+        background: #1e1e1e;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #333;
+      }
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 5px 0;
+      }
+      .btn-calc {
+        background: #444;
+        color: white;
+        border: none;
+        padding: 10px;
+        width: 100%;
+        border-radius: 8px;
+        margin-top: 10px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .btn-calc:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-area"><span class="logo-text">RibbsZn</span></div>
+    </header>
+
+    <div class="checkout-container">
+      <a href="zap.html" style="color: var(--amarelo); text-decoration: none"
+        >← Voltar ao cardápio</a
+      >
+
+      <div class="resumo-box">
+        <h3>Seu Pedido</h3>
+        <div id="listaItens"></div>
+        <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0" />
+        <div class="total-row">
+          <span>Subtotal:</span> <span id="subtotal">R$ 0,00</span>
+        </div>
+        <div class="total-row">
+          <span>Frete:</span> <span id="taxa">Calcule abaixo</span>
+        </div>
+        <div
+          class="total-row"
+          style="color: var(--amarelo); font-weight: bold; font-size: 1.2em"
+        >
+          <span>Total:</span> <span id="total">R$ 0,00</span>
+        </div>
+      </div>
+
+      <form id="formCheckout">
+        <input type="text" id="nome" placeholder="Nome Completo" required />
+        <input
+          type="text"
+          id="rua"
+          placeholder="Rua e Número (Ex: Rua Amarela, 123)"
+          required
+        />
+        <input
+          type="text"
+          id="bairro"
+          placeholder="Bairro (Recife ou Olinda)"
+          required
+        />
+        <input
+          type="text"
+          id="referencia"
+          placeholder="Ponto de Referência (Opcional)"
+        />
+
+        <button type="button" id="btnCalcular" class="btn-calc">
+          Calcular Taxa de Entrega 📍
+        </button>
+
+        <select id="pagamento" required style="margin-top: 15px">
+          <option value="" disabled selected>Forma de Pagamento</option>
+          <option value="PIX">PIX</option>
+          <option value="Cartão">Cartão (Levamos a maquineta)</option>
+          <option value="Dinheiro">Dinheiro</option>
+        </select>
+
+        <button
+          type="submit"
+          class="btn-whatsapp"
+          id="btnFinalizar"
+          disabled
+          style="opacity: 0.5"
+        >
+          Finalizar no WhatsApp 📲
+        </button>
+      </form>
+    </div>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD2QL7hEmor0FQxBWS9p5wAk3XnczkIzXo&libraries=geometry"></script>
+    <script src="checkout.js"></script>
+  </body>
+</html>

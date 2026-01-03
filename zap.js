@@ -1,6 +1,7 @@
 "use strict";
 
-import { enviarPedidoParaFirebase } from "./firebase.js";
+// Comentar a importação do Firebase se o arquivo não existir
+// import { enviarPedidoParaFirebase } from "./firebase.js";
 
 // --- Variáveis Globais ---
 let cardapioData = {};
@@ -9,6 +10,11 @@ let currentCategory = "Promoções";
 let currentItem = null;
 let pendingMilkShake = null;
 let modeEntrega = "";
+let taxaEntregaAtual = 0;
+let autocomplete; // Variável para o Google Autocomplete
+
+// Configuração da Origem: Rua Lauro de Souza, 465
+const ORIGEM_COORD = { lat: -8.02465, lon: -34.87567 };
 
 // Customização de Combo
 let comboCustomization = {
@@ -26,7 +32,91 @@ const sounds = {
   add: document.getElementById("soundAdd"),
 };
 
-// Função auxiliar para Milk Shakes no upsell
+// --- Funções de Cálculo de Frete Dinâmico (Google Maps API) ---
+
+async function initAutocomplete() {
+  const inputEndereco = document.getElementById("inputEndereco");
+  if (!inputEndereco) return;
+
+  // Carrega a biblioteca de lugares de forma assíncrona (Padrão novo do Google)
+  const { Autocomplete } = await google.maps.importLibrary("places");
+
+  // Evita que o navegador tente sugerir endereços antigos do histórico
+  inputEndereco.setAttribute("autocomplete", "new-password");
+
+  const options = {
+    componentRestrictions: { country: "br" },
+    fields: ["geometry", "formatted_address"],
+    types: ["address"],
+  };
+
+  autocomplete = new Autocomplete(inputEndereco, options);
+
+  // O cálculo de taxa ocorre quando o usuário seleciona uma sugestão
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+
+    if (!place || !place.geometry) {
+      console.warn("Endereço digitado sem selecionar da lista.");
+      return;
+    }
+
+    // Dispara o cálculo após a seleção confirmada
+    atualizarTaxaEntrega();
+  });
+}
+
+async function calcularTaxaPorDistancia() {
+  if (!autocomplete) return 0;
+
+  const place = autocomplete.getPlace();
+
+  if (!place || !place.geometry) {
+    return 0;
+  }
+
+  return new Promise((resolve) => {
+    const service = new google.maps.DistanceMatrixService();
+
+    service.getDistanceMatrix(
+      {
+        origins: [new google.maps.LatLng(ORIGEM_COORD.lat, ORIGEM_COORD.lon)],
+        destinations: [place.geometry.location],
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (response, status) => {
+        if (status === "OK") {
+          const element = response.rows[0].elements[0];
+
+          if (element.status !== "OK") {
+            console.error("Erro ao traçar rota.");
+            resolve(0);
+            return;
+          }
+
+          const distanciaMetros = element.distance.value;
+
+          // TABELA DE PREÇOS (Distância real por ruas)
+          if (distanciaMetros <= 200) return resolve(0.0);
+          if (distanciaMetros <= 500) return resolve(3.0);
+          if (distanciaMetros <= 1000) return resolve(4.0);
+          if (distanciaMetros <= 2000) return resolve(5.0);
+
+          if (distanciaMetros > 5000) {
+            alert("Desculpe, não entregamos para distâncias acima de 5km.");
+            resolve(0);
+          } else {
+            resolve(6.0);
+          }
+        } else {
+          console.error("Erro no Google Matrix:", status);
+          resolve(0);
+        }
+      }
+    );
+  });
+}
+
 function setPendingMilkShake(name, price) {
   pendingMilkShake = { name, price };
   openPopup("popupCalda");
@@ -55,6 +145,8 @@ async function loadMenuData() {
 }
 
 function salvarPedidoParaKDS(pedidoKDS) {
+  // Comentado pois o firebase.js pode não existir
+  /*
   enviarPedidoParaFirebase(pedidoKDS)
     .then(() => {
       console.log("Pedido enviado para o KDS (Firebase)");
@@ -62,7 +154,10 @@ function salvarPedidoParaKDS(pedidoKDS) {
     .catch((err) => {
       console.error("Erro ao enviar pedido:", err);
     });
+  */
+  console.log("Pedido KDS:", pedidoKDS);
 }
+
 // --- Exibição do Cardápio ---
 function showCategory(cat, btn) {
   currentCategory = cat;
@@ -78,6 +173,8 @@ function showCategory(cat, btn) {
     });
   }
   const container = document.getElementById("cardapio");
+  if (!container) return;
+
   container.innerHTML = "";
   const items = cardapioData[cat] || [];
 
@@ -88,7 +185,6 @@ function showCategory(cat, btn) {
     if (item.img) {
       const img = document.createElement("img");
       img.src = item.img;
-      // Garante que a função existe antes de chamar
       img.onclick = () => openImagePopup(item.img);
       card.appendChild(img);
     }
@@ -166,227 +262,175 @@ function addToCart(name, price, custom = {}) {
 }
 
 function updateCartDisplay() {
-  const countSpan = document.getElementById("cartCount");
-  const totalSpan = document.getElementById("cartTotalDisplay");
-  const container = document.getElementById("cartItems");
-  const cartIcon = document.getElementById("cartIcon");
-  const footer = document.getElementById("footerCart");
+  const countEl = document.getElementById("cartCount");
+  const itemsEl = document.getElementById("cartItems");
+  const totalEl = document.getElementById("cartTotalDisplay");
 
-  const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const totalCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-  countSpan.textContent = totalCount;
+  const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
+  const count = cart.reduce((acc, i) => acc + i.quantity, 0);
 
-  if (totalSpan) totalSpan.textContent = `R$ ${total.toFixed(2)}`;
+  if (countEl) countEl.textContent = count;
+  if (totalEl) totalEl.textContent = `R$ ${total.toFixed(2)}`;
 
-  if (footer.classList.contains("open")) {
-    cartIcon.innerHTML = "🛒";
-  } else {
-    cartIcon.innerHTML = "🛒";
+  if (itemsEl) {
+    itemsEl.innerHTML = "";
+    cart.forEach((item, idx) => {
+      const div = document.createElement("div");
+      div.className = "cart-item";
+      let details = generateCustomDetails(item.custom);
+      div.innerHTML = `
+        <div>
+          <strong>${item.item}</strong><br/>
+          ${details ? `<small style="color: #999">${details}</small><br/>` : ""}
+          <small>R$ ${item.price.toFixed(2)}</small>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button onclick="changeQuantity(${idx}, -1)" style="padding: 4px 8px; background: #444; border: none; color: white; border-radius: 4px; cursor: pointer;">-</button>
+          <span style="min-width: 20px; text-align: center;">${
+            item.quantity
+          }</span>
+          <button onclick="changeQuantity(${idx}, 1)" style="padding: 4px 8px; background: #444; border: none; color: white; border-radius: 4px; cursor: pointer;">+</button>
+          <button onclick="removeItem(${idx})" style="padding: 4px 8px; background: var(--vermelho); border: none; color: white; border-radius: 4px; cursor: pointer;">🗑️</button>
+        </div>
+      `;
+      itemsEl.appendChild(div);
+    });
   }
 
-  container.innerHTML = "";
-  cart.forEach((c, i) => {
-    const div = document.createElement("div");
-    div.className = "cart-item";
-    div.innerHTML = `
-      <div style="flex:1">
-        <strong>${c.item}</strong><br>
-        <span style="font-size:0.75em; color:#aaa">${generateCustomDetails(
-          c.custom
-        )}</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px">
-        <button onclick="changeQuantity(${i}, -1)" style="background:var(--vermelho); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer">-</button>
-        <span>${c.quantity}</span>
-        <button onclick="changeQuantity(${i}, 1)" style="background:var(--verde-zap); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer">+</button>
-        <span>R$ ${(c.price * c.quantity).toFixed(2)}</span>
-      </div>
-      <button onclick="removeItem(${i})" style="background:none; border:none; color:var(--vermelho); font-size:1.2em; cursor:pointer">🗑️</button>
-    `;
-    container.appendChild(div);
-  });
-
-  // Atualiza a área de Upsell
-  renderUpsell();
-}
-
-function changeQuantity(index, delta) {
-  cart[index].quantity += delta;
-  if (cart[index].quantity <= 0) {
-    removeItem(index);
-  } else {
-    updateCartDisplay();
-  }
-}
-
-function toggleCart() {
-  document.getElementById("footerCart").classList.toggle("open");
-  updateCartDisplay();
-}
-
-function removeItem(index) {
-  cart.splice(index, 1);
-  updateCartDisplay();
-}
-
-function clearCart() {
-  if (confirm("Limpar carrinho?")) {
-    cart = [];
-    document.getElementById("footerCart").classList.remove("open");
-    updateCartDisplay();
-  }
+  updateUpsell();
 }
 
 function generateCustomDetails(custom) {
-  if (!custom) return "";
+  if (!custom || Object.keys(custom).length === 0) return "";
+
   let parts = [];
-  if (custom.burgers) {
-    custom.burgers.forEach((b) => {
-      let mods = [];
-      if (b.removed?.length) mods.push("Sem " + b.removed.join(", "));
-      if (b.extras?.length)
-        mods.push("Add: " + b.extras.map((e) => e.nome).join(", "));
-      parts.push(
-        `${b.burgerName} ${mods.length ? "(" + mods.join("; ") + ")" : ""}`
-      );
-    });
-  } else {
-    if (custom.calda) parts.push("Calda: " + custom.calda);
-    if (custom.removed?.length) parts.push("Sem: " + custom.removed.join(", "));
-    if (custom.extras?.length)
-      parts.push("Add: " + custom.extras.map((e) => e.nome).join(", "));
+
+  if (custom.removed && custom.removed.length > 0) {
+    parts.push(`Sem: ${custom.removed.join(", ")}`);
   }
-  return parts.join(" | ");
+
+  if (custom.extras && custom.extras.length > 0) {
+    const extraNames = custom.extras.map((e) => e.nome || e);
+    parts.push(`Extras: ${extraNames.join(", ")}`);
+  }
+
+  if (custom.burgers && custom.burgers.length > 0) {
+    custom.burgers.forEach((b, i) => {
+      let burgerParts = [];
+      if (b.removed && b.removed.length > 0) {
+        burgerParts.push(`Sem ${b.removed.join(", ")}`);
+      }
+      if (b.extras && b.extras.length > 0) {
+        const extraNames = b.extras.map((e) => e.nome || e);
+        burgerParts.push(`+${extraNames.join(", ")}`);
+      }
+      if (burgerParts.length > 0) {
+        parts.push(`${b.burgerName}: ${burgerParts.join(" | ")}`);
+      }
+    });
+  }
+
+  return parts.join(" • ");
 }
-// --- Lógica de Upsell (COMPLETA: 6 ITENS + PERSONALIZAÇÃO) ---
-function renderUpsell() {
-  const targetCategories = ["Bebidas", "Batata Frita", "Milk Shakes"];
-  let potentialUpsells = [];
 
-  // 1. Mapeamos os itens disponíveis com seus índices originais para o modal funcionar
-  targetCategories.forEach((cat) => {
-    if (cardapioData[cat]) {
-      cardapioData[cat].forEach((item, index) => {
-        // Verifica se o item já está no carrinho para não sugerir repetido
-        const isInCart = cart.some((cartItem) =>
-          cartItem.item.includes(item.nome)
-        );
+function toggleCart() {
+  playSound("click");
+  document.getElementById("footerCart").classList.toggle("open");
+}
 
-        if (!isInCart) {
-          potentialUpsells.push({
-            ...item,
-            category: cat,
-            originalIndex: index,
-          });
-        }
-      });
+function removeItem(idx) {
+  cart.splice(idx, 1);
+  updateCartDisplay();
+}
+
+function changeQuantity(idx, delta) {
+  if (cart[idx]) {
+    cart[idx].quantity += delta;
+    if (cart[idx].quantity <= 0) {
+      cart.splice(idx, 1);
     }
-  });
+    updateCartDisplay();
+  }
+}
 
-  const container = document.getElementById("upsellContainer");
-  const list = document.getElementById("upsellList");
+function clearCart() {
+  if (confirm("Deseja limpar todo o carrinho?")) {
+    cart = [];
+    updateCartDisplay();
+  }
+}
 
-  // Se não houver o que sugerir ou o carrinho estiver vazio, esconde a seção
-  if (potentialUpsells.length === 0 || cart.length === 0) {
-    if (container) container.style.display = "none";
+// --- Upsell ---
+function updateUpsell() {
+  const upsellContainer = document.getElementById("upsellContainer");
+  const upsellList = document.getElementById("upsellList");
+
+  if (!upsellContainer || !upsellList) return;
+
+  const categoriesInCart = new Set(
+    cart.map((c) => {
+      if (c.item.toLowerCase().includes("combo")) return "Combos";
+      if (c.item.toLowerCase().includes("batata")) return "Batata Frita";
+      if (c.item.toLowerCase().includes("bebida")) return "Bebidas";
+      if (c.item.toLowerCase().includes("shake")) return "Milk Shakes";
+      return "Artesanais";
+    })
+  );
+
+  const hasBurger =
+    categoriesInCart.has("Artesanais") || categoriesInCart.has("Combos");
+  const hasFries = categoriesInCart.has("Batata Frita");
+  const hasDrink = categoriesInCart.has("Bebidas");
+
+  let suggestions = [];
+
+  if (hasBurger && !hasFries && cardapioData["Batata Frita"]) {
+    suggestions.push(...cardapioData["Batata Frita"].slice(0, 2));
+  }
+
+  if (hasBurger && !hasDrink && cardapioData["Bebidas"]) {
+    suggestions.push(...cardapioData["Bebidas"].slice(0, 2));
+  }
+
+  if (!hasBurger && cardapioData["Promoções"]) {
+    suggestions.push(...cardapioData["Promoções"].slice(0, 2));
+  }
+
+  if (suggestions.length === 0) {
+    upsellContainer.style.display = "none";
     return;
   }
 
-  // Sorteia e limita a 6 itens
-  const suggestions = potentialUpsells
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 6);
-
-  if (container) container.style.display = "block";
-  list.innerHTML = "";
+  upsellContainer.style.display = "block";
+  upsellList.innerHTML = "";
 
   suggestions.forEach((item) => {
-    const firstOptionIndex = 0;
-    const hasOptions = item.opcoes && item.opcoes.length > 0;
-    const firstOptionName = hasOptions ? item.opcoes[0] : "";
-
-    // Define o preço (se for array pega o primeiro, se não pega o valor direto)
-    const basePrice = Array.isArray(item.precoBase)
+    const price = Array.isArray(item.precoBase)
       ? item.precoBase[0]
-      : item.precoBase || 0;
-
-    // Nome Completo: Nome do Produto + Nome da Opção (ex: Coca Cola + Lata)
-    const fullName =
-      item.nome +
-      (firstOptionName && firstOptionName !== item.nome
-        ? " " + firstOptionName
-        : "");
-    const imgSrc = item.img || "img/default.png";
-
+      : item.precoBase;
     const card = document.createElement("div");
     card.className = "upsell-card";
-
-    // --- Definição da Ação de Clique ---
-    let actionOnClick;
-    if (item.category === "Milk Shakes") {
-      // Use a função auxiliar para evitar erro de escopo
-      actionOnClick = `setPendingMilkShake('${fullName}', ${basePrice})`;
-    } else {
-      // ITENS NORMAIS: Abrem o modal de personalização (ingredientes/extras)
-      // Passa a Categoria, o Índice Real no JSON e o índice da opção 0
-      actionOnClick = `openPopupCustom('${item.category}', ${item.originalIndex}, ${firstOptionIndex})`;
-    }
-
     card.innerHTML = `
-      <img src="${imgSrc}" alt="${fullName}" onclick="window.openImagePopup('${imgSrc}')" style="cursor:pointer" />
-      <h4>${fullName}</h4>
-      <span class="price">R$ ${parseFloat(basePrice).toFixed(2)}</span>
-      <button onclick="${actionOnClick}">Personalizar ✚</button>
+      <img src="${item.img || "img/default.png"}" alt="${item.nome}" />
+      <h4>${item.nome}</h4>
+      <div class="price">R$ ${parseFloat(price).toFixed(2)}</div>
+      <button onclick="addToCart('${item.nome}', ${parseFloat(
+      price
+    )})">+ Add</button>
     `;
-
-    list.appendChild(card);
+    upsellList.appendChild(card);
   });
 }
-// --- Modais ---
-function openPopup(id) {
-  const backdrop = document.getElementById("backdrop");
-  const popup = document.getElementById(id);
 
-  backdrop.style.display = "block";
-  popup.style.display = "block";
-
-  void popup.offsetHeight; // Força reflow
-
-  backdrop.classList.add("show");
-  popup.classList.add("show");
-}
-
-function closeModal(id) {
-  const backdrop = document.getElementById("backdrop");
-  const popup = document.getElementById(id);
-
-  if (popup) {
-    popup.classList.remove("show");
-  }
-
-  const openPopups = document.querySelectorAll(".popup.show");
-
-  if (openPopups.length === 0) {
-    backdrop.classList.remove("show");
-    setTimeout(() => {
-      backdrop.style.display = "none";
-      if (popup) popup.style.display = "none";
-    }, 300);
-  } else {
-    if (popup) {
-      setTimeout(() => {
-        popup.style.display = "none";
-      }, 300);
-    }
-  }
-}
-
-// --- Lógica de Milk Shakes e Imagens ---
+// --- Milk Shake Calda ---
 function selectCalda(calda) {
   if (pendingMilkShake) {
-    addToCart(pendingMilkShake.name, pendingMilkShake.price, { calda: calda });
+    addToCart(
+      pendingMilkShake.name + " - Calda de " + calda,
+      pendingMilkShake.price
+    );
     pendingMilkShake = null;
-    closeModal("popupCalda");
+    closeCaldaPopup();
   }
 }
 
@@ -394,59 +438,87 @@ function closeCaldaPopup() {
   closeModal("popupCalda");
 }
 
-function openImagePopup(src) {
-  const img = document.getElementById("enlargedImage");
-  if (img) {
-    img.src = src;
-    openPopup("popupImage");
+// --- Modais ---
+function openPopup(id) {
+  const backdrop = document.getElementById("backdrop");
+  const popup = document.getElementById(id);
+  if (backdrop) backdrop.classList.add("show");
+  if (popup) {
+    popup.classList.add("show");
+    popup.scrollTop = 0;
   }
+}
+
+function closeModal(id) {
+  const backdrop = document.getElementById("backdrop");
+  const popup = document.getElementById(id);
+  if (backdrop) backdrop.classList.remove("show");
+  if (popup) popup.classList.remove("show");
+}
+
+function openImagePopup(imgSrc) {
+  const img = document.getElementById("enlargedImage");
+  if (img) img.src = imgSrc;
+  openPopup("popupImage");
 }
 
 function closeImagePopup() {
   closeModal("popupImage");
 }
 
-// --- Personalização ---
-function openPopupCustom(cat, itemIndex, optionIndex) {
-  currentItem = { cat, itemIndex, optionIndex };
-  const item = cardapioData[cat][itemIndex];
-  if (item.combo && item.burgers) {
-    startComboCustomization(item, optionIndex);
+// --- Customização Simples ---
+function openPopupCustom(cat, itemIdx, opIdx) {
+  currentItem = { cat, itemIdx, opIdx };
+  const item = cardapioData[cat][itemIdx];
+
+  if (item.combo) {
+    startComboCustomization(item, opIdx);
     return;
   }
 
   const container = document.getElementById("popupQuestion");
-  const nomeOpcao = item.opcoes ? item.opcoes[optionIndex] : "";
-  document.getElementById("popupCustomTitle").textContent =
-    "Personalizar: " + item.nome + " " + nomeOpcao;
+  const popup = document.getElementById("popupCustom");
+
+  document.getElementById(
+    "popupCustomTitle"
+  ).textContent = `Personalize: ${item.nome}`;
   container.innerHTML = "";
 
-  let ingredientes = item.ingredientes || item.ingredientesPadrao;
+  let ingredientes = [];
+  const nomeOp = (item.opcoes && item.opcoes[opIdx]) || "";
 
-  if (item.ingredientesPorOpcao && item.ingredientesPorOpcao[nomeOpcao]) {
-    ingredientes = item.ingredientesPorOpcao[nomeOpcao];
+  if (nomeOp.toLowerCase().includes("simples") && item.simplesIngredients) {
+    ingredientes = item.simplesIngredients;
+  } else if (nomeOp.toLowerCase().includes("duplo") && item.duploIngredients) {
+    ingredientes = item.duploIngredients;
+  } else if (
+    nomeOp.toLowerCase().includes("triplo") &&
+    item.triploIngredients
+  ) {
+    ingredientes = item.triploIngredients;
   } else {
-    const opLower = nomeOpcao.toLowerCase();
-    if (opLower.includes("simples") && item.simplesIngredients) {
-      ingredientes = item.simplesIngredients;
-    } else if (opLower.includes("duplo") && item.duploIngredients) {
-      ingredientes = item.duploIngredients;
-    } else if (opLower.includes("triplo") && item.triploIngredients) {
-      ingredientes = item.triploIngredients;
-    }
+    ingredientes = item.ingredientes || item.ingredientesPadrao || [];
   }
 
-  if (ingredientes && ingredientes.length > 0) {
-    container.innerHTML += "<h4>Retirar Ingredientes:</h4>";
+  if (ingredientes.length > 0) {
+    container.innerHTML += "<h4>Remover ingredientes:</h4>";
     ingredientes.forEach((ing) => {
-      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}" /><span>Retirar ${ing}</span></label>`;
+      container.innerHTML += `<label><input type="checkbox" data-type="remove" value="${ing}" /><span>Sem ${ing}</span></label>`;
     });
   }
 
-  const extras = item.paidExtras || item.adicionais || [];
-  if (extras.length > 0) {
-    container.innerHTML += "<h4>Adicionais:</h4>";
-    extras.forEach((ext) => {
+  const adicionais = item.adicionais || [];
+  if (adicionais.length > 0) {
+    container.innerHTML += "<h4>Adicionais grátis:</h4>";
+    adicionais.forEach((ad) => {
+      container.innerHTML += `<label><input type="checkbox" data-type="adicional" value="${ad}" /><span>${ad}</span></label>`;
+    });
+  }
+
+  const paidExtras = item.paidExtras || [];
+  if (paidExtras.length > 0) {
+    container.innerHTML += "<h4>Adicionais pagos:</h4>";
+    paidExtras.forEach((ext) => {
       container.innerHTML += `<label><input type="checkbox" data-type="extra" data-price="${
         ext.preco
       }" value="${ext.nome}" /><span>${ext.nome} (+R$ ${ext.preco.toFixed(
@@ -455,26 +527,33 @@ function openPopupCustom(cat, itemIndex, optionIndex) {
     });
   }
 
-  document.querySelector("#popupCustom .btn-primary").onclick =
-    confirmSimpleCustom;
   openPopup("popupCustom");
+  popup.scrollTop = 0;
 }
 
 function confirmSimpleCustom() {
-  const item = cardapioData[currentItem.cat][currentItem.itemIndex];
-  const precos = Array.isArray(item.precoBase)
-    ? item.precoBase
-    : [item.precoBase];
-  const price = precos[currentItem.optionIndex] || precos[0];
-  const nomeOpcao = item.opcoes ? item.opcoes[currentItem.optionIndex] : "";
-
+  const { cat, itemIdx, opIdx } = currentItem;
+  const item = cardapioData[cat][itemIdx];
   const container = document.getElementById("popupQuestion");
+
   const removed = Array.from(
     container.querySelectorAll('input[data-type="remove"]:checked')
   ).map((i) => i.value);
+
+  const adicionais = Array.from(
+    container.querySelectorAll('input[data-type="adicional"]:checked')
+  ).map((i) => i.value);
+
   const extras = Array.from(
     container.querySelectorAll('input[data-type="extra"]:checked')
   ).map((i) => ({ nome: i.value, preco: parseFloat(i.dataset.price) }));
+
+  const nomeOpcao = item.opcoes ? item.opcoes[opIdx] : "";
+  const precos = Array.isArray(item.precoBase)
+    ? item.precoBase
+    : [item.precoBase];
+  const price = precos[opIdx] || precos[0];
+
   const extrasTotal = extras.reduce((sum, e) => sum + e.preco, 0);
 
   addToCart(item.nome + " " + nomeOpcao, parseFloat(price) + extrasTotal, {
@@ -484,7 +563,6 @@ function confirmSimpleCustom() {
   closeModal("popupCustom");
 }
 
-// --- Combos ---
 function startComboCustomization(item, opIdx) {
   const precos = Array.isArray(item.precoBase)
     ? item.precoBase
@@ -512,13 +590,11 @@ function renderComboStep() {
   container.innerHTML = "<h4>Personalize este lanche:</h4>";
 
   let ings = [];
-
   if (burgerName.toLowerCase().includes("simples")) {
     ings = item.simplesIngredients || [];
   } else if (burgerName.toLowerCase().includes("duplo")) {
     ings = item.duploIngredients || [];
   }
-
   if (ings.length === 0) {
     ings = ["Cebola caramelizada", "Molho artesanal", "Cheddar fatiado"];
   }
@@ -600,35 +676,65 @@ function iniciarCheckout() {
 function selecionarModo(modo) {
   modeEntrega = modo;
   closeModal("modalModoEntrega");
-  document.getElementById("areaEntrega").style.display =
-    modo === "entrega" ? "block" : "none";
-  document.getElementById("linhaTaxa").style.display =
-    modo === "entrega" ? "flex" : "none";
-  atualizarTaxaEntrega();
-  openPopup("modalDados");
+
+  if (modo === "entrega") {
+    // Salva o carrinho atual para ser lido na página de checkout
+    localStorage.setItem("ribbs_cart", JSON.stringify(cart));
+    window.location.href = "checkout.html";
+  } else {
+    // Mantém o fluxo antigo para retirada local
+    document.getElementById("areaEntrega").style.display = "none";
+    document.getElementById("linhaTaxa").style.display = "none";
+    taxaEntregaAtual = 0;
+    atualizarTaxaEntrega();
+    openPopup("modalDados");
+  }
 }
 
-function atualizarTaxaEntrega() {
+async function atualizarTaxaEntrega() {
   let taxa = 0;
+  const selBairro = document.getElementById("selectBairro");
+  const bairroSelecionado = selBairro ? selBairro.value : "";
+  const resumoTaxaDisplay = document.getElementById("resumoTaxa");
+
   if (modeEntrega === "entrega") {
-    const sel = document.getElementById("selectBairro");
-    taxa = parseFloat(sel.options[sel.selectedIndex]?.dataset.taxa || 0);
+    const place = autocomplete ? autocomplete.getPlace() : null;
+
+    if (bairroSelecionado === "Campo Grande" && place && place.geometry) {
+      if (resumoTaxaDisplay) resumoTaxaDisplay.textContent = "Calculando...";
+      taxa = await calcularTaxaPorDistancia();
+    } else if (selBairro && selBairro.selectedIndex > 0) {
+      taxa = parseFloat(
+        selBairro.options[selBairro.selectedIndex]?.dataset.taxa || 0
+      );
+    }
   }
+
+  taxaEntregaAtual = taxa;
   const sub = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
-  document.getElementById("resumoSubtotal").textContent = `R$ ${sub.toFixed(
-    2
-  )}`;
-  document.getElementById("resumoTaxa").textContent = `R$ ${taxa.toFixed(2)}`;
-  document.getElementById("resumoTotal").textContent = `R$ ${(
-    sub + taxa
-  ).toFixed(2)}`;
+
+  if (document.getElementById("resumoSubtotal"))
+    document.getElementById("resumoSubtotal").textContent = `R$ ${sub.toFixed(
+      2
+    )}`;
+
+  if (resumoTaxaDisplay)
+    resumoTaxaDisplay.textContent = `R$ ${taxa.toFixed(2)}`;
+
+  if (document.getElementById("resumoTotal"))
+    document.getElementById("resumoTotal").textContent = `R$ ${(
+      sub + taxa
+    ).toFixed(2)}`;
 }
 
 function verificarTroco() {
-  document.getElementById("areaTroco").style.display =
-    document.getElementById("selectPagamento").value === "Dinheiro"
-      ? "block"
-      : "none";
+  const areaTroco = document.getElementById("areaTroco");
+  if (areaTroco) {
+    areaTroco.style.display =
+      document.getElementById("selectPagamento").value === "Dinheiro"
+        ? "block"
+        : "none";
+  }
 }
 
 function enviarZap(e) {
@@ -657,10 +763,11 @@ function enviarZap(e) {
   });
 
   let msg = `*PEDIDO RIBBSZN - ${modeEntrega.toUpperCase()}*%0a*Cliente:* ${nome}%0a`;
-  if (modeEntrega === "entrega")
-    msg += `*Endereço:* ${document.getElementById("inputRua").value}, ${
-      document.getElementById("selectBairro").value
-    }%0a`;
+  if (modeEntrega === "entrega") {
+    const endereco = document.getElementById("inputEndereco").value;
+    const bairro = document.getElementById("selectBairro").value;
+    msg += `*Endereço:* ${endereco}%0a*Bairro:* ${bairro}%0a`;
+  }
 
   msg += `%0a*ITENS:*%0a`;
   cart.forEach((c) => {
@@ -681,7 +788,7 @@ function enviarZap(e) {
   showCategory("Promoções", document.querySelector(".sessao-topo button"));
 }
 
-// --- Exposição de funções para o escopo Global (Necessário para o onclick do HTML) ---
+// --- Exposição de funções para o escopo Global ---
 window.showCategory = showCategory;
 window.toggleCart = toggleCart;
 window.removeItem = removeItem;
@@ -698,6 +805,13 @@ window.closeImagePopup = closeImagePopup;
 window.addToCart = addToCart;
 window.openPopup = openPopup;
 window.closeModal = closeModal;
-window.openPopupCustom = openPopupCustom; // ESSA LINHA É CRUCIAL PARA O UPSELL
+window.openPopupCustom = openPopupCustom;
 window.confirmSimpleCustom = confirmSimpleCustom;
-window.setPendingMilkShake = setPendingMilkShake; // Nova exposição para o upsell de Milk Shakes
+window.setPendingMilkShake = setPendingMilkShake;
+window.startComboCustomization = startComboCustomization;
+window.renderComboStep = renderComboStep;
+window.nextComboStep = nextComboStep;
+window.initAutocomplete = initAutocomplete;
+window.openImagePopup = openImagePopup;
+
+export { initAutocomplete };

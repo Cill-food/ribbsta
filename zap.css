@@ -334,11 +334,10 @@ header {
 
 .backdrop.show {
   display: block;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6); /* Escurece o fundo */
+  backdrop-filter: blur(8px); /* Efeito de desfoque */
+  -webkit-backdrop-filter: blur(8px); /* Compatibilidade Safari */
 }
-
 /* --- Checkout e Formulários --- */
 input,
 select {
